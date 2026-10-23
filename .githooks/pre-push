@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Refuse to push a skill change that didn't bump its plugin's version.
+#
+# The installed plugin cache is keyed by version
+# (~/.claude/plugins/cache/egildo-skills/<plugin>/<version>/), so a skill edit
+# pushed without a version bump never reaches an installed machine.
+#
+# Two rules, per plugin:
+#   1. Anything under plugins/<p>/skills/ changed  ->  plugins/<p>/.claude-plugin/plugin.json
+#      version must have changed too.
+#   2. That version must equal the plugin's entry in .claude-plugin/marketplace.json.
+#
+# Bypass with: git push --no-verify
+
+set -uo pipefail
+
+ZERO=0000000000000000000000000000000000000000
+fail=0
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "pre-push: python3 not found, skipping version checks" >&2
+  exit 0
+fi
+
+# version declared in a plugin.json blob at <rev>:<path>
+plugin_version() {
+  git show "$1:$2" 2>/dev/null | python3 -c '
+import json, sys
+try:
+    print(json.load(sys.stdin).get("version", ""))
+except Exception:
+    pass
+'
+}
+
+# version the marketplace advertises for plugin <name> at <rev>
+marketplace_version() {
+  git show "$1:.claude-plugin/marketplace.json" 2>/dev/null | python3 -c '
+import json, sys
+try:
+    want = sys.argv[1]
+    for p in json.load(sys.stdin).get("plugins", []):
+        if p.get("name") == want:
+            print(p.get("version", ""))
+            break
+except Exception:
+    pass
+' "$2"
+}
+
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [ "$local_sha" = "$ZERO" ] && continue          # branch deletion
+
+  base="$remote_sha"
+  if [ "$base" = "$ZERO" ]; then                  # new branch on the remote
+    base=$(git rev-parse -q --verify origin/main 2>/dev/null || true)
+  fi
+
+  while read -r manifest; do
+    plugin=${manifest#plugins/}
+    plugin=${plugin%%/*}
+
+    new_version=$(plugin_version "$local_sha" "$manifest")
+    if [ -z "$new_version" ]; then
+      echo "pre-push: $manifest declares no version" >&2
+      fail=1
+      continue
+    fi
+
+    # rule 2 — manifest and marketplace must agree
+    market_version=$(marketplace_version "$local_sha" "$plugin")
+    if [ -n "$market_version" ] && [ "$market_version" != "$new_version" ]; then
+      echo "pre-push: $plugin is $new_version in plugin.json but $market_version in marketplace.json" >&2
+      fail=1
+    fi
+
+    # rule 1 — skills changed, so the version must have moved
+    [ -z "$base" ] && continue
+    if ! git diff --quiet "$base" "$local_sha" -- "plugins/$plugin/skills" 2>/dev/null; then
+      old_version=$(plugin_version "$base" "$manifest")
+      if [ -n "$old_version" ] && [ "$old_version" = "$new_version" ]; then
+        echo "pre-push: $plugin skills changed but version is still $new_version" >&2
+        echo "          bump it in plugins/$plugin/.claude-plugin/plugin.json and .claude-plugin/marketplace.json," >&2
+        echo "          then run: claude plugin update $plugin@egildo-skills" >&2
+        fail=1
+      fi
+    fi
+  done < <(git ls-tree -r --name-only "$local_sha" | grep -E '^plugins/[^/]+/\.claude-plugin/plugin\.json$')
+done
+
+if [ "$fail" -ne 0 ]; then
+  echo "pre-push: rejected. Use --no-verify to override." >&2
+fi
+exit "$fail"
