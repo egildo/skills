@@ -21,11 +21,12 @@ An interface design and prototyping app: pages, frames, auto layout, components 
   - `cli.md`: the subcommands, `run` scripts, the automation roots.
 - Live command list, from the running app: `node scripts/fc.mjs list_commands '{"filter":"<word>"}'` (through `--attach`), or the control method `engine.commands`. `figcraft-cli commands --filter <word>` lists the CLI's own build. Parameter names come from here; never guess them.
 - Release notes: `https://github.com/storytold/figcraft/releases/tag/v0.10.0`
+- [`references/fields.md`](references/fields.md): each field's `node.set` key, `variable.bind` field and read-back side by side, with Figma's name; the write-then-bind cases; what is reported and what is only kept; slots; library copies.
 
 ## Surfaces
 
 - **Headless CLI.** `figcraft-cli info | export | convert | render | run`. One shot, files in, files out. `run script.json --in a.figcraft --out b.figcraft` is one undo step and all-or-nothing: a failing step prints only its own line with `"rolledBack": true`, exits 1 and writes nothing. Use it to build or render a file nobody is watching.
-- **MCP, headless.** `figcraft-cli mcp`. A long session with one untitled document, no window, CPU renders. `open_file` makes the opened file the active one. Each process is a new session, so keep one process open for a multi-step job.
+- **MCP, headless.** `figcraft-cli mcp`. A long session with one untitled document, no window, CPU renders. `open_file` adds the file as a second tab and makes it the active one; pin batches with `doc.switch` as in the app. `window.list` is an unknown command here. `save_file {path}` saves the active tab and fails if the folder does not exist. Each process is a new session, so keep one process open for a multi-step job, such as a sync that reads, writes and reads again; `run` cannot do that, because a failing step loses the reads before it.
 - **MCP, attached.** `figcraft-cli mcp --attach <port>` drives an app started with `--control <port>`; every change shows in its window. `scripts/fc.mjs` wraps it (below). Use this when the user wants to watch, or works in the app.
 - **Control port.** JSON lines on `127.0.0.1:<port>`, no authentication. Methods such as `engine.execute`, `document.inspect`, `ui.render`, `window.list`, `app.quit`. Useful for a single method the MCP tools do not wrap.
 - **Not there:** the macOS app bundle holds no CLI; `figcraft-cli` is a separate download. No surface asks for a login.
@@ -44,6 +45,11 @@ An interface design and prototyping app: pages, frames, auto layout, components 
 6. **Look at it:** `node scripts/fc.mjs screenshot '{"ids":[<id>],"scale":2}'` prints `IMAGE <path>`; open the PNG and look. Without `window` it renders the document, so it works while the app is hidden.
 7. **Save where the user says,** absolute path, as a step of a pinned batch: `{"command":"file.save","params":{"path":"/abs/name.figcraft"}}`. A first save needs a path; no dialog opens. Check the path is free first (Pitfalls).
 8. **When done, quit only the instance you started:** control method `app.quit` on its port, then confirm the PID is gone. It does not ask about unsaved changes.
+
+**Rebuilding a web page's components.** Read every value from the running page, never from memory or the source. In a browser, resolve each custom property on a probe element with `getComputedStyle`: `span.style.color = 'var(--x)'` resolves a colour, and `getPropertyValue` gives lengths and the `font` shorthand. Put the probe inside the element that sets a theme or tone, so it resolves that role's values. Then build:
+- **Colours become variables, roles become modes.** Use a collection per axis that switches values (a mode per theme or tone) and a one-mode collection for constants. Create layers with placeholder colours, then `variable.bind {ids, field: "fill" | "stroke", variable}`; a text layer's colour is its `fill`. `variable.setMode {ids, collection, mode}` on a frame switches everything inside it, so one component set serves every role.
+- **Variants.** Make one component per combination, named `prop=value, prop=value`, then `component.combineVariants {ids}`, and name the set. Lay it out with `layout: "grid"`, `gridColumns`, `columnGap`, `rowGap`. `component.properties {id}` reads a set's or an instance's properties; `instance.create {component, parent}` places one.
+- **Measure before saying it matches.** Compare `get_node` `width` and `height` with the element's `getBoundingClientRect()`.
 
 ## Asking first
 
@@ -78,11 +84,19 @@ An interface design and prototyping app: pages, frames, auto layout, components 
 
 **Unknown keys are refused in some places and ignored in others.** `node.set` and effects refuse keys they don't take (a shadow's offset is `offset: [x, y]`, not `offsetX`). Unknown keys in layout grid items and unknown command parameters pass: `inspect.properties {ids}` ignores `ids` and inspects the selection. After any new kind of property, read it back.
 
-**No read reports a frame's variable mode or a layer's link to a component property.** `variable.setMode` and `component.bindProperty` work and are saved, but `get_node`, `inspect_document` and `inspect.properties` do not show them. Keep your own record of what you set.
+**Some fields are kept but never read back.** A frame's variable mode, a layer's link to a component property, `cornerSmoothing`, `maxLines`, `paragraphSpacing`, `paragraphIndent`, a line's `strokeCap` and an exposed instance are saved and drawn, but no read shows them. `blend` reads back the same for `normal` and `pass through`. Keep your own record of what you set (`references/fields.md`).
 
-**Variable ids are reused, node ids are not.** Delete `VariableID:3`, create another variable, and it is `VariableID:3` again. Don't hold a variable id across a delete.
+**Writing a value to a bound field unhooks its variable.** Write every value first, then bind. The four corners are one field, and so are the four stroke sides. A corner bound beside a bound `cornerRadius` does nothing, and a side written unhooks every side binding and a bound `strokeWeight`. When a corner or side differs, write the list, then bind each part, never `cornerRadius` or `strokeWeight`.
+
+**The `node.get` command reads one level of children, whatever `depth` says.** Inside a batch, `run_command` or a `run` script, walk the tree a level at a time. The MCP `get_node` tool honours `depth`.
+
+**`node.reparent` and `node.reorder` count indices differently.** `node.reorder {id, index}` takes the final position. `node.reparent {ids, parent, index}` within the same parent counts the list before the layer leaves it: `[a, b, c, d]` with `a` to `index: 3` gives `[b, c, a, d]`. An index past the end appends without an error.
+
+**Variable ids are reused, node ids are not.** Delete `VariableID:3`, create another variable, and it is `VariableID:3` again. Don't hold a variable id across a delete. A library's copies in `variable.list` carry the library's id as a prefix, but their mode ids do not, and can equal the file's own.
 
 **A font style the family lacks is accepted silently.** `fontStyle: "Medium"` on a family without it reads back as `Medium` and draws another style, and `text.missingFonts` lists only missing families. Check `text.fonts {"family":"<name>"}` first and say which style was substituted.
+
+**A CSS border takes room even when transparent; a FigCraft frame without a stroke does not.** A web button with `border: 1px solid transparent` is 2 px wider than its frame. Give every variant a 1 px inside stroke, transparent where the page has none; `strokesIncluded` is on by default for auto layout, so it counts like padding.
 
 **A drop shadow on a frame without an opaque fill is not box-shaped.** With no fill it is cast from the children; with a 0% fill it is hidden, and with `showBehind: true` it is cast from the children again. Render and look before calling a shadow done.
 

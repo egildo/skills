@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Egildo's public Claude Code skills. For now: artcraft, one skill per ArtCraft app.",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "plugins": [
     {
       "name": "artcraft",
       "source": "./plugins/artcraft",
       "description": "Drive the ArtCraft suite from Claude Code: one skill per app (PhotoCraft, LightCraft, VectorCraft, FigCraft, DesignCraft, WordCraft, DeckCraft, GridCraft, PdfCraft, EffectCraft, FilmCraft, SoundCraft, CADCraft), each pinned to a version and pointing at the app's own docs.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "apps"
     }
   ]
