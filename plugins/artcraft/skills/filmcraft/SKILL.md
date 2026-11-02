@@ -5,7 +5,7 @@ description: FilmCraft is the open-source, pure-Rust Premiere Pro alternative fr
 
 # FilmCraft
 
-**Pinned:** FilmCraft 0.12.0 (app and CLI), docs tag `v0.12.0`, checked 23 October 2026. From the docs and source at the tag: not measured.
+**Pinned:** FilmCraft 0.16.0 (app and CLI), docs tag `v0.16.0`, checked 2 November 2026. From the docs and source at the tag: not measured.
 
 Two layers, kept apart. FilmCraft's docs at the pinned tag and its live command list are the reference for commands, parameters and protocol. This skill holds how to drive it and what was learned by doing. If the two disagree about a command, the docs and the live list win. If the installed version is not the pinned one, say so before relying on anything below.
 
@@ -19,33 +19,33 @@ It is not Premiere: no `.prproj`, no plugins (VST3, Audio Units, OpenFX), no `.m
 
 ## The references
 
-- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/filmcraft/v0.12.0/docs/<file>`
+- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/filmcraft/v0.16.0/docs/<file>`
   - `agents.md`: "Part 1: driving FilmCraft" (the MCP tool table, "Conventions", "Long exports"), then §2 and §2b for the control channel and CLI.
-  - `control-protocol.md`: the method table, then "Selection or explicit targets" and "Focus".
+  - `control-protocol.md`: the token setup at the top, the method table, then "Selection or explicit targets" and "Focus".
   - `project-files.md`: "Format", "Newer files", the save and recovery commands, then "Media: offline, relinking, proxies, ingest".
   - `file-format-parity.md` and `codec-parity.md`: what reads and writes, format by format.
   - `gaps.md`: the ranked table of shortfalls at the top.
   - `captions.md`, `graphics.md`, `transcripts.md`, `monitors.md` for those areas.
-- README at the tag ("Formats and codecs", "Export", "Interchange", "Status"): `curl -sL https://raw.githubusercontent.com/storytold/filmcraft/v0.12.0/README.md`
+- README at the tag ("Formats and codecs", "Export", "Interchange", "Status"): `curl -sL https://raw.githubusercontent.com/storytold/filmcraft/v0.16.0/README.md`
 - The live command list: `filmcraft-cli commands [filter] --json`, then `filmcraft-cli describe <id>` for one command's params and whether it is enabled now. Against the running app add `--bridge 127.0.0.1:9876`. Over MCP: `command_list`; on the control port: `{"id":1,"method":"engine.commands"}`.
 - CLI reference: `filmcraft-cli help`. App flags: `FilmCraft --help`.
-- Release notes: `https://github.com/storytold/filmcraft/releases/tag/v0.12.0`
+- Release notes: `https://github.com/storytold/filmcraft/releases/tag/v0.16.0`
 
 ## Surfaces
 
 - **Headless CLI** (`filmcraft-cli`): one shot, files in, files out, no window. `--project p.fcproj` (or `--demo`) opens a project in a fresh session, then `exec`, `run`, `import`, `inspect`, `export`, `render` or `probe`. Edits reach disk only with `--save` or `--save-as`. Pick it for a project nobody has open.
 - **MCP, headless** (`filmcraft-cli mcp`, `--demo` or `--project p.fcproj`, optional `--data-dir`): a long session on stdio, no window. Tools include `command_run`, `command_batch`, `doc_inspect` and `render_frame`. Pick it for iterative work on a file.
 - **MCP, bridge** (`filmcraft-cli mcp --bridge 127.0.0.1:9876`): drives the app started with `--control 9876`. Changes show in the user's window, and the `ui_*` tools (elements, click, drag, key, type, screenshot) work only here.
-- **Control port** (`FilmCraft --control 9876`, or `FILMCRAFT_CONTROL_PORT`): JSON lines on `127.0.0.1` only, one request and one reply per line. From a shell, `filmcraft-cli --bridge 127.0.0.1:9876 exec <id> key=value` is the easy client.
+- **Control port** (`FilmCraft --control 9876`, or `FILMCRAFT_CONTROL_PORT`): JSON lines on `127.0.0.1` only, one request and one reply per line, each carrying a top-level `token`. From a shell, `filmcraft-cli --bridge 127.0.0.1:9876 exec <id> key=value` is the easy client.
 - **Web build** (`filmcraft-web-<ver>.zip`): the same commands as promises on `window.filmcraft` in the browser page. Only relevant when the user runs the web build.
-- No authentication on any of them, and MCP has no folder confinement: it reads and writes wherever the user can. Start the control port only while you use it.
+- The control port, and so every bridge, needs `FILMCRAFT_CONTROL_TOKEN`: 64 random hex characters, in the app's environment at launch and in each client's. The CLI and MCP bridge read it from their environment. Keep it out of command lines, logs and checked-in MCP config. The headless surfaces need no token, and MCP has no folder confinement: it reads and writes wherever the user can.
 - On macOS the CLI is a separate download (`filmcraft-cli-<ver>-macos-universal.zip`); the `.app` holds only the desktop app. The app binary is `/Applications/FilmCraft.app/Contents/MacOS/FilmCraft`.
 - Version rule: `filmcraft-cli --version` and `FilmCraft --version` must both print the pinned version. Nothing checks this on `--bridge`: command ids are passed through as given, so a mismatch shows up only as unknown commands or rejected params.
 
 ## Driving it
 
-1. Find a running app with a port (`pgrep -fl FilmCraft`, `lsof -nP -iTCP -sTCP:LISTEN | grep -i filmcraft`). If the user's instance has no port, start a second one: `/Applications/FilmCraft.app/Contents/MacOS/FilmCraft --control 9877 &`. It opens without taking focus. For file-only work use the headless CLI or MCP instead.
-2. Check the link and the document: `filmcraft-cli --bridge 127.0.0.1:9877 inspect project`. Read `name`, `path`, `dirty` and `revision`. A refused connection means no control server on that port.
+1. Find a running app with a port (`pgrep -fl FilmCraft`, `lsof -nP -iTCP -sTCP:LISTEN | grep -i filmcraft`). The user's instance is usable only if they started it with `--control` and give you its token. Otherwise start a second one with a fresh token: `export FILMCRAFT_CONTROL_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"`, then `/Applications/FilmCraft.app/Contents/MacOS/FilmCraft --control 9877 &` from that environment. It opens without taking focus. For file-only work use the headless CLI or MCP instead.
+2. Check the link and the document: `filmcraft-cli --bridge 127.0.0.1:9877 inspect project`, with the same token in the environment. Read `name`, `path`, `dirty` and `revision`. A refused connection means no control server on that port; an error that closes the connection means a wrong token.
 3. Read the timeline: `filmcraft-cli --bridge … inspect sequence` (MCP `sequence_inspect`) for track names, clip ids, `start` and `end` in ticks. Commands act on the active sequence.
 4. Look up each command before using it: `filmcraft-cli --bridge … describe timeline.place`. Name targets (`clips`, `items`) instead of relying on the selection.
 5. Make one logical change per call: one `exec`, or a short `run -` script or MCP `command_batch`. Each edit is its own undo step; note `revision` before, so you know how far `edit.undo` must go.
@@ -55,6 +55,7 @@ It is not Premiere: no `.prproj`, no plugins (VST3, Audio Units, OpenFX), no `.m
 ## Asking first
 
 - Tell the user before you start a second instance: its window takes keyboard focus, so what they are typing lands in your document. `open -g` does not always prevent it.
+- Never accept the update prompt. The desktop app checks GitHub for a newer release at every start *(source at the tag, not measured)*. For your own instance, add `--env CRAFT_VERSIONS_FILE=<scratch>/versions.json` holding `{"apps":{"filmcraft":{"Pinned":"0.16.0"}}}`: a pinned entry skips the check.
 - Any edit in a project the user has open in the app, and any save over a file the user already had.
 - `file.open`, `file.newProject`, `file.openDemoProject`, `file.recover` and `file.revert` in the user's instance: they replace the project in the window.
 - Exports or `file.saveAs` onto an existing path; `media.makeOffline` with `deleteFiles: true`; `file.discardRecovery`; `mediaCache.clean`; `file.projectManager` with `overwrite`.
@@ -69,13 +70,13 @@ It is not Premiere: no `.prproj`, no plugins (VST3, Audio Units, OpenFX), no `.m
 |---|---|---|---|
 | `.fcproj` | yes | yes | A file from a newer FilmCraft is refused. The first save over an older file keeps `<name> (schema vN backup).fcproj` beside it |
 | `.prproj` | no | no | Bring Premiere work over as FCP 7 XML, AAF or OTIO |
-| FCP 7 XML, FCPXML 1.9–1.11, OTIO, CMX 3600 EDL | yes | yes | Import merges into the open project as one undo step. XML exported by Premiere imports slowly |
+| FCP 7 XML, FCPXML 1.9–1.11, OTIO, CMX 3600 EDL | yes | yes | Import merges into the open project as one undo step, unless `replace: true` |
 | AAF, OMF 2.0 | AAF yes, OMF no | yes | The docs say neither was ever opened in Media Composer or Pro Tools |
 | ALE, marker CSV | no | yes | |
-| MP4, MOV, MXF, Matroska / WebM, MPEG TS / PS, Ogg, AVI | yes | MP4, MOV, MXF | AVI per the README; one parity table still says no. No WMV, FLV, DivX or DV |
+| MP4, MOV, MXF, Matroska / WebM, MPEG TS / PS, Ogg, AVI | yes | MP4, MOV, MXF | AVI is read only, without DivX / Xvid or DV. No WMV or FLV |
 | H.264, ProRes, DNxHR, MJPEG | yes | yes | Media export writes ProRes 422 HQ; proxies use Proxy or LT. 10-bit and 4:2:2 H.264 decode only through the OS hardware decoder |
 | HEVC, VP8, VP9, AV1, MPEG-2 | yes | HEVC only by hardware | HEVC export: VideoToolbox on macOS (8-bit SDR) or NVIDIA on Windows. No AV1 export |
-| PNG, JPEG, TIFF, BMP, GIF, WebP, EXR, DPX, Targa | yes | sequences, GIF | No PSD, HEIC or camera RAW |
+| PNG, JPEG, TIFF, BMP, GIF, WebP, EXR, DPX, Targa | yes | sequences, GIF | PSD only as its flattened composite (8 or 16-bit RGB or greyscale, no layers, CMYK or PSB). No HEIC or camera RAW |
 | WAV, AIFF, AAC | yes | yes | MP3, FLAC, Opus, Vorbis read only |
 | SRT, WebVTT, SCC, MCC, EBU STL, TTML / DFXP | yes | yes | Burn-in or sidecar only; no 608/708 embedded in the video stream |
 | `.cube`, `.3dl` LUTs | yes | `lut.export` | Premiere `.prfpset`, `.epr`, `.kys` presets are not read |
@@ -95,6 +96,7 @@ It is not Premiere: no `.prproj`, no plugins (VST3, Audio Units, OpenFX), no `.m
 - **The output may get a second extension.** *(docs, not measured)* When the format needs another container, the name changes (`out.mp4` written as APV is `out.mp4.mov`). Take the written path from the result, not from what you asked for.
 - **Enabled state ignores named targets.** *(docs, not measured)* `command_list` and `describe` report enablement for the current selection. A command shown disabled may run fine with `clips` or `items` named. Try it with targets before giving up.
 - **`timeline.move` drags linked partners along.** *(docs, not measured)* With Linked Selection on, moving a picture clip moves its sound too, overwriting what is at the destination. Pass `"linked": false` to move only the listed clips.
+- **An instance started without the token cannot be attached.** *(docs, not measured)* The app reads `FILMCRAFT_CONTROL_TOKEN` at launch. Missing, or not 64 hex characters, it runs normally with the port closed, and only its status bar and log say why. Each `--bridge` call needs the same value in its own environment: a shell that drops exports between calls must set it on every command.
 - **Bare times are ticks.** *(docs, not measured)* 254 016 000 000 per second. `start`, `end`, `sourceIn` and a number passed as `time` are ticks; use `seconds`, `frame` or `timecode` keys when you mean those.
 
 ## Not there yet
@@ -102,7 +104,6 @@ It is not Premiere: no `.prproj`, no plugins (VST3, Audio Units, OpenFX), no `.m
 - No `.prproj` open or save, no plugin hosting, no `.mogrt`.
 - No AV1 export, no software HEVC export, no MP3, WMV, DVD, Blu-ray or DCP delivery.
 - Speech to text is off in release builds: `transcript.generate` is disabled. Import a transcript with `transcript.set`.
-- No work area bar: export ranges use In/Out, not a work area.
-- No camera RAW, PSD or HEIC import; no E-AC-3.
-- Colour grading, keys and export rendering run on the CPU; big footage is slow.
+- No camera RAW or HEIC import; PSD layers do not come in, only the flattened image.
+- Lumetri curves and wheels, keys, masks and non-dissolve transitions render on the CPU; big footage is slow.
 - Windows and Linux are far less tested than macOS; the web build is incomplete.

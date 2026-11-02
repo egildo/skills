@@ -5,7 +5,7 @@ description: SoundCraft is the open-source, pure-Rust Pro Tools alternative from
 
 # SoundCraft
 
-**Pinned:** SoundCraft 0.12.1 (app and CLI), docs tag `v0.12.1`, checked 23 October 2026 on macOS. Measured on the running app.
+**Pinned:** SoundCraft 0.16.0 (app and CLI), docs tag `v0.16.0`, checked 2 November 2026 on macOS. Measured on the running app.
 
 Two layers, kept apart. SoundCraft's docs at the pinned tag and its live command list are the reference for commands, parameters and protocol. This skill holds how to drive it and what was learned by doing. If the two disagree about a command, the docs and the live list win. If the installed version is not the pinned one, say so before relying on anything below.
 
@@ -19,19 +19,20 @@ It is not Pro Tools: no `.ptx` sessions, no AAF or OMF, no AAX plug-ins.
 
 ## The references
 
-- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/soundcraft/v0.12.1/docs/<file>`
+- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/soundcraft/v0.16.0/docs/<file>`
+  - `cli.md`: the subcommand table, then "Output and exit codes".
   - `control-protocol.md`: the "Methods" table, then "Positions and references".
   - `mcp.md`: the "Tools" table, then "Confining file access".
   - `file-format-parity.md`: the "Audio" and "Sessions and interchange" tables.
   - `gaps.md`: "Ranked gaps".
-- README at the tag ("For agents and scripts", "Logs"): `curl -sL https://raw.githubusercontent.com/storytold/soundcraft/v0.12.1/README.md`
+- README at the tag ("For agents and scripts", "Logs"): `curl -sL https://raw.githubusercontent.com/storytold/soundcraft/v0.16.0/README.md`
 - The live command list: `soundcraft-cli commands [FILTER]`, then `soundcraft-cli describe ID` for one command's parameters. That list is the engine only. The running app adds its UI commands (`ui.dock`, `ui.audio_device`, `ui.theme`): ask it with `soundcraft-cli app --port 7801 engine.commands '{"filter":"ui."}'`. Over MCP: `list_commands`.
-- Release notes: `https://github.com/storytold/soundcraft/releases/tag/v0.12.1`
+- Release notes: `https://github.com/storytold/soundcraft/releases/tag/v0.16.0`
 
 ## Surfaces
 
-- **Headless CLI** (`soundcraft-cli`): one shot, no window. `run --in S.scraft` (or `--demo`) applies `--cmd 'ID=JSON'` steps, then `--bounce OUT` and `--save S.scraft`. The input file is untouched unless you `--save` over it. `info` probes a file; `convert` changes format or rate. Pick it for a bounce or a batch edit of a session nobody has open.
-- **MCP, headless** (`soundcraft-cli mcp`, `--demo` to start from the demo song): a long session on stdio with its own engine. Add `--automation-read-root DIR --automation-write-root DIR` to keep it to given folders *(docs, not measured)*.
+- **Headless CLI** (`soundcraft-cli`): one shot, no window. `run --in S.scraft` (or `--demo`) applies `--cmd 'ID=JSON'` steps, then `--bounce OUT` and `--save S.scraft`. `--save` onto the `--in` file is refused (exit 2) unless you add `--in-place`. A misspelt flag is exit 2 too. `info` probes a file; `convert` changes format or rate. Pick it for a bounce or a batch edit of a session nobody has open.
+- **MCP, headless** (`soundcraft-cli mcp`, `--demo` to start from the demo song): a long session on stdio with its own engine. Add `--automation-read-root DIR --automation-write-root DIR` to keep it to given folders; each flag may repeat, and a write outside them fails `automation path rejected`.
 - **MCP, attached** (`soundcraft-cli mcp --connect 7801`): the same tools plus `screenshot`, `ui_inspect`, `click`, `drag`, `key` and `menu_invoke`, against an app started with `--control 7801`. Changes show in that window. The roots cannot be combined with `--connect`, and the app is not confined.
 - **Control port** (`--control PORT`; `0` picks one and prints `SOUNDCRAFT_CONTROL_PORT=…` on stdout): JSON lines on `127.0.0.1`. From a shell: `soundcraft-cli app --port PORT METHOD_OR_COMMAND_ID 'JSON'`. There is no batch method on the port; use MCP `batch` for that.
 - No authentication on the port or MCP, and no token. Never forward the port.
@@ -40,7 +41,9 @@ It is not Pro Tools: no `.ptx` sessions, no AAF or OMF, no AAX plug-ins.
 ## Driving it
 
 1. Start your own instance with an isolated profile and no audio output:
-   `open -n -a /Applications/SoundCraft.app --env SOUNDCRAFT_CONFIG_DIR="$SCRATCH/sc-config" --args --no-audio --control 7801`
+   `echo '{"apps":{"soundcraft":{"Pinned":"v0.16.0"}}}' > "$SCRATCH/versions.json"`
+   `open -n -a /Applications/SoundCraft.app --env SOUNDCRAFT_CONFIG_DIR="$SCRATCH/sc-config" --env CRAFT_VERSIONS_FILE="$SCRATCH/versions.json" --args --no-audio --control 7801`
+   The versions file keeps the instance from asking GitHub for updates (see Pitfalls).
    Wait with `until nc -z 127.0.0.1 7801; do sleep 0.5; done`, then run `lsof -nP -iTCP:7801 -sTCP:LISTEN` and check the listener is `SoundCraft`. Keep its PID.
 2. Check the link: `soundcraft-cli app --port 7801 ui.inspect`. Always pass `--port`.
 3. Know the document: `soundcraft-cli app --port 7801 session.inspect` gives `name`, `path`, `dirty`, `selection` and `undo`. In your own instance, start clean with `session.new '{"name":"work","template":"blank"}'` (or `"demo"`).
@@ -56,9 +59,9 @@ It is not Pro Tools: no `.ptx` sessions, no AAF or OMF, no AAX plug-ins.
 - Any edit in a session the user already had open, in their own window.
 - `session.new`, `session.open`, `session.close` and `app.quit` in an instance you did not start: they drop unsaved work without a prompt.
 - Overwriting a file: `session.save` with `"replace": true`, and any `file.bounce_mix` or export to a path that exists.
-- Arming a track, input monitoring or recording: they open the microphone. Also `ui.audio_device`, which changes the user's saved device choice.
+- Arming a track, input monitoring or recording: they open the microphone. Also `ui.audio_device`, which changes the user's saved device choice, and `setup.playback_engine` or `setup.hardware`, which switch the running app's output device *(docs, not measured)*.
 - Loading third-party plug-ins (`engine.clap_plugins`, `engine.vst3_plugins` with `rescan`): native code runs in the app's process.
-- Anything that reaches a server. This version has no collaboration, cloud or AI generation; if a command would go online, ask.
+- Anything that reaches a server. This version has no collaboration, cloud or AI generation, but Help ▸ Check for Updates asks GitHub, and the update prompt downloads a new version and restarts the app. Never accept that prompt.
 - Never quit an instance the user started; start a second one on another port. After a transport failure, read `session.inspect` and `engine.history` before retrying: the call may have completed.
 
 ## Formats
@@ -85,9 +88,10 @@ It is not Pro Tools: no `.ptx` sessions, no AAF or OMF, no AAX plug-ins.
 - **`file.export_clips` ignores `format`.** `"aiff"` and `"mp3"` both wrote `.wav` files with no error. Convert afterwards with `soundcraft-cli convert`.
 - **`soundcraft-cli app` without `--port` goes to `7979`** (or `$SOUNDCRAFT_CONTROL_PORT`), which may be someone else's instance. Always pass `--port`.
 - **A taken port does not stop the app.** A second instance with `--control` on a busy port opens its window with no control server; only the log shows `failed to bind`. Your commands then reach the first instance. And `nc -z` succeeds for any listener, so confirm with `lsof` that it is SoundCraft.
-- **`open -a` without `-n` starts nothing new.** With SoundCraft already running, it activates that instance and drops `--args` and `--env` ("already running"). Always use `open -n`.
+- **`open -a` without `-n` starts nothing new.** With SoundCraft already running, it activates that instance and drops `--args` and `--env`, with no error. Always use `open -n`.
 - **Screenshots are in pixels, clicks are in points.** On a Retina screen the PNG is twice `window_size` from `ui.inspect`. Divide screenshot coordinates by the ratio before `ui.click`.
-- **`ui.screenshot` sometimes fails with `no frame was presented (is the window visible?)`.** It happens now and then on a visible window. Retry after a second before you debug.
+- **Every start asks GitHub for a newer release.** The desktop app checks `api.github.com` at launch and may open an update prompt in your window. Set `CRAFT_VERSIONS_FILE` to a file that pins `soundcraft` (step 1): the check is skipped, and with `RUST_LOG=info,craft_update=info` the log says `follows the launcher's choice`. There is no flag for it.
+- **`end` without `start` bounces from the selection start, not from zero.** With the playhead at 5 s, `{"end":{"seconds":30}}` wrote 25 s. With neither, the whole session. Always pass `"start":0` with `end`.
 
 ## Not there yet
 

@@ -5,7 +5,7 @@ description: CADCraft is the open-source, pure-Rust AutoCAD alternative from sto
 
 # CADCraft
 
-**Pinned:** CADCraft 0.12.0 (app and CLI), docs tag `v0.12.0`, checked 23 October 2026 on macOS. Measured on the running app.
+**Pinned:** CADCraft 0.16.0 (app and CLI), docs tag `v0.16.0`, checked 2 November 2026 on macOS. Measured on the running app.
 
 Two layers, kept apart. CADCraft's docs at the pinned tag and its live command list are the reference for commands, parameters and protocol. This skill holds how to drive it and what was learned by doing. If the two disagree about a command, the docs and the live list win. If the installed version is not the pinned one, say so before relying on anything below.
 
@@ -15,19 +15,20 @@ A CAD and drafting app built around the AutoCAD workflow: command line with prom
 
 ## The references
 
-- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/cadcraft/v0.12.0/docs/<file>`
+- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/cadcraft/v0.16.0/docs/<file>`
   - `control-protocol.md`: the token paragraph, the method table, "Command-line replies".
   - `mcp.md`: "Start it" (`--lazy`, `--launch`) and "Tools".
   - `file-format-parity.md`: "DXF content: read and write by object type" before promising any round trip.
   - `gaps.md`: "Top 10 across everything", then "File formats".
   - `customization.md`: scripts, `.pgp` aliases, LISP; `autolisp.md` for what LISP runs.
-  - The README (`.../v0.12.0/README.md`), "Drive it from agents, MCP and the CLI", for CLI framing rules.
+  - `cli.md`: "Conventions" (exit codes, streams, `--in-place`) and "Environment variables"; `cadcraft-cli help <subcommand>` holds every flag.
+  - The README (`.../v0.16.0/README.md`), "Drive it from agents, MCP and the CLI", for examples.
 - Live command list: `cadcraft-cli commands [FILTER]` (JSON: id, aliases, `params`, `interactive`); on the control port `engine.commands` (adds the app's `ui.*` commands) and `control.methods`; in MCP, `list_commands {filter}`.
-- Release notes: `https://github.com/storytold/cadcraft/releases/tag/v0.12.0`
+- Release notes: `https://github.com/storytold/cadcraft/releases/tag/v0.16.0`
 
 ## Surfaces
 
-- **Headless CLI.** `cadcraft-cli info | convert | run | commands | sample | mcp`. One shot, files in, files out, no auth, no window. `run FILE --script '...' --cmd 'id {json}' --save out.dxf --export out.png`. Right for conversion, inspection and scripted edits to files.
+- **Headless CLI.** `cadcraft-cli info | convert | run | commands | sample | mcp`. One shot, files in, files out, no auth, no window. `run FILE --script '...' --cmd 'id {json}' --save out.dxf --export out.png`; a `--cmd` value of exactly `"{last}"` is the last handle an earlier `--cmd` returned. Exit codes: 0 done, 1 the command failed, 2 usage error. Right for conversion, inspection and scripted edits to files.
 - **MCP headless.** `cadcraft-cli mcp`: an in-process drawing over stdio, no window. Right for a long agent session on files nobody watches.
 - **MCP attached.** `cadcraft-cli mcp --connect 127.0.0.1:7979`: the same tools plus `screenshot`, `ui_inspect`, `ui_click`, acting on the app's window. It reads the control token itself. Without a reachable app it fails; it never falls back to a separate drawing.
 - **Control port.** Start the app with `--control PORT`; JSON lines on `127.0.0.1:PORT`. Every request carries `"token"`, read from `cadcraft-control-<PORT>.token` in `$XDG_RUNTIME_DIR`, else `~/.cache` (on macOS usually `~/.cache/cadcraft-control-7979.token`, mode 600). Right when the user should see the work, or for one-off requests from the shell.
@@ -36,8 +37,8 @@ A CAD and drafting app built around the AutoCAD workflow: command line with prom
 
 ## Driving it
 
-1. Check both versions. If either differs from 0.12.0, say so.
-2. Start your own instance, never reuse the user's: `open -n -a /Applications/CADCraft.app --args --control 7979`, then `until nc -z 127.0.0.1 7979; do sleep 1; done`. Note its PID: `lsof -nP -t -iTCP:7979 -sTCP:LISTEN`.
+1. Check both versions. If either differs from 0.16.0, say so.
+2. Start your own instance, never reuse the user's: `open -n -a /Applications/CADCraft.app --env CADCRAFT_CONFIG_DIR= --args --control 7979`. The empty settings folder skips the startup update check and keeps your session out of the user's preferences, log and autosave. Then `until nc -z 127.0.0.1 7979; do sleep 1; done`. Note its PID: `lsof -nP -t -iTCP:7979 -sTCP:LISTEN`.
 3. Check the link, reading the token only after the port answers:
    ```sh
    T=$(cat ~/.cache/cadcraft-control-7979.token)
@@ -54,11 +55,11 @@ A CAD and drafting app built around the AutoCAD workflow: command line with prom
 
 - Tell the user before you start a second instance: its window takes keyboard focus, so what they are typing lands in your document. `open -g` does not always prevent it.
 - Any edit in a drawing the user already had open, and switching their active drawing (`document.switch`).
-- Saving over an existing file: `app.save`, `qsave`, `saveas` and CLI `--save` overwrite without asking.
+- Saving over an existing file: `app.save` and JSON `saveas` overwrite without asking, keeping only the previous file as `<name>.bak` (a DWG) or `<name>.dxf.bak`, itself overwritten next time. CLI `--save` refuses to replace one of its inputs unless given `--in-place`, and keeps no `.bak`.
 - Saving as DWG, or re-saving a DXF from another program: the docs say what CADCraft does not model is dropped. Keep the original.
 - `close`, `closeall` and `app.quit` on an instance with work in it: they discard unsaved changes without a prompt.
 - `ui.set`, `ui.language`, `ui.saveformat`, `ui.dock`: they change preferences the app saves for next time *(docs, not measured)*.
-- Nothing in CADCraft reaches a server: no account, cloud or AI service. Downloading fonts or builds is the user's call.
+- The app checks GitHub for updates at startup when it has a settings folder, and offers "Update and Restart", which installs a new build: never accept it. No account, cloud or AI service. Downloading fonts or builds is the user's call.
 - Never quit an instance the user started: it may hold unsaved work. Start a second one with `open -n`.
 - After a transport failure or a `timeout` reply, read `drawing.inspect` before retrying: with `"state":"may-have-run"` the call may have completed.
 
@@ -78,13 +79,13 @@ A CAD and drafting app built around the AutoCAD workflow: command line with prom
 
 **`open -a` without `-n` ignores `--args`.** With CADCraft already running it only brings that window forward; no port opens. Always `open -n -a ... --args --control PORT`.
 
-**`mcp --launch` cannot start a second instance.** With CADCraft already open without that port, it waits about 60 s, then fails telling you to quit the app. Do not: start your own with `open -n` and `--connect` to its port.
+**`mcp --launch` cannot start a second instance.** It runs `open -a` without `-n`, so with CADCraft already open without that port it waits 30 s, then fails telling you to quit the app *(source at the tag, not measured)*. Do not: start your own with `open -n` and `--connect` to its port.
 
 **A bad token closes the connection.** The reply is `unauthorized: missing or invalid control token`, then the socket is dropped; reconnect. The token file outlives the app and is rewritten at every launch: read it after the port answers, never cache it.
 
 **Unknown JSON parameters are silently ignored.** `circle` with `"layer":"X"` lands on the current layer; `line` with a typo `"closd":true` stays open. Check names against `params` in `engine.commands`, then read back.
 
-**Numbers sent as strings fail with a misleading message.** `"radius":"5"` gives `radius must be positive`. Send JSON numbers and `[x,y]` arrays.
+**Numbers sent as strings fail with a misleading message.** `"radius":"5"` gives ``invalid parameters for `circle`: `radius` must be positive``. Send JSON numbers and `[x,y]` arrays.
 
 **A LINE in a script must end with a blank line.** Without it the next command name is refused and its numbers become more line segments; LINE stays running. `cmdline.script` has no `error` field and `cadcraft-cli run --script` exits 0 anyway. Check `output` for refusals and `state.running`. (`--cmd` errors do exit 1 and save nothing.)
 
@@ -94,7 +95,7 @@ A CAD and drafting app built around the AutoCAD workflow: command line with prom
 
 **A script is not one undo step.** Each command is its own undo entry. Wrap the change in `undo` `begin`/`end`.
 
-**New drawings are in inches.** `new {}` and `cadcraft-cli run` without `--metric` write `$INSUNITS` 1 and imperial settings. Pass `{"metric":true}` or `--metric` for millimetres.
+**New drawings are in inches.** `new {}` follows `MEASUREINIT`, 0 unless the user changed it in Options, and `cadcraft-cli run` without `--metric` is imperial too: `$INSUNITS` 1. Pass `{"metric":true}` or `--metric` for millimetres, whatever the profile says.
 
 **Saving to `.dxf` or `.dwg` re-points the drawing.** After `app.save` to a new path, the tab's title and `path` become that file. Saving to `.png` only exports; the docs say the same of `.svg` and `.pdf`.
 

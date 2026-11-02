@@ -5,7 +5,7 @@ description: LightCraft is the open-source, pure-Rust Lightroom alternative from
 
 # LightCraft
 
-**Pinned:** LightCraft 0.13.0 (app and CLI), docs tag `v0.13.0`, checked 23 October 2026. From the docs and source at the tag: not measured.
+**Pinned:** LightCraft 0.17.0 (app and CLI), docs tag `v0.17.0`, checked 2 November 2026. From the docs and source at the tag: not measured.
 
 Two layers, kept apart. LightCraft's docs at the pinned tag and its live command list are the reference for commands, parameters and protocol. This skill holds how to drive it and what was learned by doing. If the two disagree about a command, the docs and the live list win. If the installed version is not the pinned one, say so before relying on anything below.
 
@@ -18,15 +18,15 @@ Not Lightroom: no Lightroom plug-ins, no Adobe camera or lens profiles (`.dcp`, 
 
 ## The references
 
-- The docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/lightcraft/v0.13.0/docs/<file>`. Read first:
+- The docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/lightcraft/v0.17.0/docs/<file>`. Read first:
   - `mcp.md`: "Tools" (helpers and their defaults), then "One-shot commands: `lightcraft-cli run`" and "Other CLI subcommands".
   - `control-protocol.md`: "Methods", "External controllers" (reading state, undo grouping) and "Headless rendering".
   - `xmp-interop.md`: "Sidecar files". `lightroom-catalog-import.md` for `.lrcat`.
   - `file-format-parity.md` for formats; `gaps.md` for what is missing, ranked.
   - `ai-masks.md`, `faces.md`, `denoise.md` before any optional model; `merge.md`, `slideshow.md` for those modules.
-- The README at the tag ("Built for agents", "Feature status"): `curl -sL https://raw.githubusercontent.com/storytold/lightcraft/v0.13.0/README.md`.
+- The README at the tag ("Built for agents", "Feature status"): `curl -sL https://raw.githubusercontent.com/storytold/lightcraft/v0.17.0/README.md`.
 - The live command list: `lightcraft-cli commands --json` (engine commands) and `lightcraft-cli controls --json` (slider ids, ranges, defaults). Against a running app: `lightcraft-cli run --connect 127.0.0.1:7980 engine.commands` adds the UI commands such as `view.detail`. Over MCP: `command_list`.
-- Release notes: `https://github.com/storytold/lightcraft/releases/tag/v0.13.0`.
+- Release notes: `https://github.com/storytold/lightcraft/releases/tag/v0.17.0`.
 
 ## Surfaces
 
@@ -54,10 +54,10 @@ Version rule: use the CLI and the app from the same release. On macOS the CLI is
 ## Asking first
 
 - Tell the user before you start a second instance: its window takes keyboard focus, so what they are typing lands in your document. `open -g` does not always prevent it.
-- Any change in a library the user already uses: ratings, flags, develop edits, albums, deletes (even to Recently Deleted), a Lightroom catalog import into it, `slideshow.templates.apply` (no undo).
+- Any change in a library the user already uses: ratings, flags, develop edits, albums, deletes (even to Recently Deleted), a Lightroom catalog import into it (`file.importLightroom` with `into: "new"` also creates and opens a new library), `slideshow.templates.apply` (no undo).
 - Anything that writes into the user's photo folders: XMP sidecars (`photo.saveMetadataToFile`, or edits when the library has `autoWrite` on), `destinationMode: "sameAsOriginal"`, `lightcraft-cli merge` (writes `<first>-HDR.dng` next to the first input), and `import` with `mode: "move"` (removes the originals from the source).
 - Overwriting a saved file: an export to an existing `path`, or `conflict: "overwrite"`.
-- Anything that leaves the machine or accepts terms: model downloads for Object/Describe masks, faces or denoise (each has its own licence), `LIGHTCRAFT_SAM3_REMOTE` or `LIGHTCRAFT_DENOISE_URL` (send pixels to another computer), `lightcraft-cli denoise-serve` (opens a TCP port), and `addToPhotos` (into Apple Photos, so iCloud Photos when that is on).
+- Anything that leaves the machine or accepts terms: model downloads for Object/Describe masks, faces or denoise (each has its own licence), `LIGHTCRAFT_SAM3_REMOTE` or `LIGHTCRAFT_DENOISE_URL` (send pixels to another computer), `lightcraft-cli denoise-serve` (opens a TCP port), and `addToPhotos` (into Apple Photos, so iCloud Photos when that is on). The desktop app itself asks GitHub for a newer release at each start; never accept its update prompt, which installs the update and closes the app.
 - Never send `app.quit` to an instance the user started: it may hold unsaved work or running tasks. Start a second one instead.
 - After a dropped connection ("the outcome is unknown"), read the state (`photo.inspect`, `library.state`) before retrying: the command may have run. MCP connect mode never resends it for you.
 
@@ -67,7 +67,7 @@ Version rule: use the CLI and the app from the same release. On macOS the CLI is
 |---|---|---|
 | Raw | DNG, CR2, CR3, ARW, NEF, RAF, RW2/RWL, PEF, ORF, SRW and more | DNG with the edits embedded; Rendered DNG (linear float, edits baked in) |
 | Raw variants it cannot decode | embedded camera JPEG only, flagged `previewOnly` | |
-| Images | JPEG, PNG, TIFF, WebP, JPEG XL, BMP; GIF first frame; PSD merged composite only (no layers); HEIC/HEIF in release builds | JPEG, PNG, TIFF (8/16-bit, 32-bit float), WebP, AVIF, JPEG XL (desktop only), flat PSD, original + XMP sidecar |
+| Images | JPEG, PNG, TIFF, WebP, JPEG XL, BMP; GIF first frame; PSD/PSB merged composite only (no layers); HEIC/HEIF in release builds | JPEG, PNG, TIFF (8/16-bit, 32-bit float), WebP, AVIF, JPEG XL (desktop only), flat PSD, original + XMP sidecar |
 | AVIF | not decoded | 8/10-bit, PQ HDR |
 | XMP sidecars | `lc:settings` exactly; Adobe `crs:` settings approximately, with per-photo warnings | `lc:settings` plus standard fields, merged into an existing sidecar |
 | Presets | `.lcpreset`, XMP presets, `.lrtemplate`, Luminar `.lmp`; `.cube` LUT profiles | `.lcpreset` |
@@ -80,13 +80,14 @@ Imported Lightroom edits will not look identical: the project says render fideli
 
 - **`command_batch` is not one undo step.** *(docs, not measured)* Each step gets its own undo step. Group a change in one `develop.set`, or between `develop.beginInteraction` and `develop.endInteraction`.
 - **A taken control port fails quietly.** *(docs, not measured)* A port already in use, or not a number, is only logged; the app runs with no control server. `--connect` then reaches whoever owns the port. Check `library.info` → `path` before editing.
-- **A second instance without `--library` lands on the user's library.** *(docs, not measured)* It opens `LIGHTCRAFT_LIBRARY` or the last library opened. If that is locked, it starts an empty in-memory session that saves nothing (`ui.inspect` → `libraryProblem`). Pass a scratch `--library`, and `--no-demo` or a file, or the new library fills with demo photos.
+- **A second instance without `--library` lands on the user's library.** *(docs, not measured)* It opens `LIGHTCRAFT_LIBRARY` or the last library opened, or, with Settings ▸ General ▸ At launch on Ask me, waits on a list of recent libraries (`ui.inspect` → `libraryProblem.chooser`). If the library is locked, it starts an empty in-memory session that saves nothing (`ui.inspect` → `libraryProblem`). Pass a scratch `--library`, and `--no-demo` or a file, or the new library fills with demo photos.
 - **Headless exports are not full size by default.** *(docs, not measured)* Headless `app.export` and the MCP `export` tool write a 3000 px long edge when no size is given, and PNG for a `dir` with no `format`. `render` defaults to full size. Pass `longEdge=0` for full size and always pass `format`.
-- **An exact `path` overwrites whatever `conflict` says.** *(docs, not measured)* A one-photo export to an existing `path` replaces that file; only catalogued originals are refused. Export to a `dir` (default `conflict: "unique"` adds `-2`), or check that the path is free.
+- **An exact `path` overwrites whatever `conflict` says.** *(docs, not measured)* A one-photo export to an existing `path` replaces that file; only catalogued originals and their sidecar names are refused. Export to a `dir` (default `conflict: "unique"` adds `-2`), or check that the path is free.
 - **Passing `id` moves the user's selection.** *(docs, not measured)* `set_develop`, `crop` and `export` with an `id` make that photo the only selected and active one. To look without moving anything, use `get_develop {id}`, `render_photo {id}` or `render_preview`.
 - **Auto Sync spreads an edit.** *(docs, not measured)* With Auto Sync on, `develop.set` and `develop.adjust` also change the other selected photos. `develop.autoSync {}` toggles it; it is not a state query. Select only the target, then re-read the photos you touched.
-- **White balance in settings JSON is relative unless it says Kelvin.** *(docs, not measured)* A `settings.wb` (or a preset) with `temp`/`tint` and no `"scale": "kelvin"` means 6500 = as shot, even on raws with Kelvin. Use `values` with `wb.temp`, or add the scale.
+- **White balance in settings JSON is relative unless it says Kelvin.** *(docs, not measured)* A `settings.wb` (in `develop.merge`, a preset or `render --settings`) with `temp`/`tint` and no `"scale": "kelvin"` means 6500 = as shot, even on raws with Kelvin. Use `values` with `wb.temp`, or add the scale.
 - **On macOS, `ui.key` does not fire menu shortcuts.** *(docs, not measured)* It injects egui keys, and the native menu owns the accelerators. Run the command by id through `engine.execute` instead.
+- **An update prompt at start takes the keyboard.** *(docs, not measured)* When a newer release exists, the desktop app opens an update prompt as it starts; while it is open, no keyboard shortcut reaches the library. Take a `ui.screenshot` of a new instance before driving it by keys, and do not accept the update.
 - **A raw can look fine and still be preview-only.** *(docs, not measured)* A raw the decoder refuses shows its embedded JPEG. Check `previewOnly` in `catalog.query` before promising a develop or a full-resolution export.
 
 ## Not there yet

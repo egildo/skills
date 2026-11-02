@@ -5,7 +5,7 @@ description: PdfCraft is the open-source, pure-Rust Acrobat alternative from sto
 
 # PdfCraft
 
-**Pinned:** PdfCraft 0.13.0 (app and CLI), docs tag `v0.13.0`, checked 23 October 2026. From the docs and source at the tag: not measured.
+**Pinned:** PdfCraft 0.17.0 (app and CLI), docs tag `v0.17.0`, checked 2 November 2026. From the docs and source at the tag: not measured.
 
 Two layers, kept apart. PdfCraft's docs at the pinned tag and its live command list are the reference for commands, parameters and protocol. This skill holds how to drive it and what was learned by doing. If the two disagree about a command, the docs and the live list win. If the installed version is not the pinned one, say so before relying on anything below.
 
@@ -15,14 +15,14 @@ A desktop PDF workbench: view, search, organize, combine and split, comment, fil
 
 ## The references
 
-- Docs at the tag (no login needed): `curl -sL https://raw.githubusercontent.com/storytold/pdfcraft/v0.13.0/<file>`
+- Docs at the tag (no login needed): `curl -sL https://raw.githubusercontent.com/storytold/pdfcraft/v0.17.0/<file>`
   - `README.md`: read "Built for agents, too" and "Driving the app itself" first.
   - `docs/mcp.md`: "Confining file access" and "Tools".
   - `crates/automation/README.md`: "Conventions" (1-based pages, top-left origin in points), "Common command tools".
   - `docs/cli-batch.md`: folder conversion, OCR and compression.
   - `docs/file-format-parity.md` and `docs/gaps.md`: what each format keeps, what is missing.
 - Live command list: `pdfcraft-cli tools` (every tool with its JSON Schema), `pdfcraft-cli --help`; in MCP, `command_list` or `tools/list`; on the control channel, `pdfcraft-cli ui --control FILE commands`.
-- Release notes: `https://github.com/storytold/pdfcraft/releases/tag/v0.13.0`
+- Release notes: `https://github.com/storytold/pdfcraft/releases/tag/v0.17.0`
 
 ## Surfaces
 
@@ -30,24 +30,25 @@ A desktop PDF workbench: view, search, organize, combine and split, comment, fil
 - **`pdfcraft-cli run`.** The full tool table without a server: `run <tool> key=value` or `run --script steps.json [--root DIR] [--report]`. One process is one session. Right for a scripted edit-and-save.
 - **MCP server, headless.** `pdfcraft-cli mcp [--compact] [--root DIR] [--automation-read-root DIR] [--automation-write-root DIR]`. JSON-RPC over stdio, no port, stops on EOF. No auth: confinement comes from the root flags. Right for a long agent session over files.
 - **MCP attached to a running app.** Does not exist. `pdfcraft-cli mcp` always runs its own session: nothing it does shows in, or touches, a window.
-- **UI control channel.** Start the app with `--control FILE`. It listens on `127.0.0.1` on a random port and writes `{"port", "token", "pid"}` to FILE with mode 600. The wire format is newline-delimited JSON-RPC 2.0. The first request must be `auth` with `{"token": ...}` within 10 s, or the connection closes. The client is `pdfcraft-cli ui --control FILE <method> [key=value ...] [--out shot.png]`, which authenticates for you. It works at the UI level only (`state`, `inspect`, `click`, `focus`, `type`, `key`, `drag`, `move`, `command`, `commands`, `set`, `open`, `screenshot`, `resize`, `quit`, `dock`), not through the document tools. Right when the user must see the change in a window.
+- **UI control channel.** Start the app with `--control FILE`. It listens on `127.0.0.1` on a random port and writes `{"port", "token", "pid"}` to FILE with mode 600. The wire format is newline-delimited JSON-RPC 2.0. The first request must be `auth` with `{"token": ...}` within 10 s, or the connection closes. The client is `pdfcraft-cli ui --control FILE <method> [key=value ...] [--out shot.png]`, which authenticates for you. It works at the UI level only (`state`, `inspect`, `click`, `focus`, `type`, `key`, `drag`, `move`, `command`, `commands`, `set`, `open`, `screenshot`, `resize`, `quit`, `panel`), not through the document tools. Right when the user must see the change in a window.
 - **Version rule.** The CLI must match the app. Nothing checks it: the control file carries no version, and the handshake checks only the token. A mismatched CLI gets `unknown method` errors, or parameters handled the old way. Compare `/Applications/PdfCraft.app/Contents/MacOS/PdfCraft --version` with `pdfcraft-cli --version`. On macOS the CLI is a separate release zip (`pdfcraft-cli-<ver>-macos-universal.zip`): the `.app` holds only the desktop app.
 
 ## Driving it
 
-1. Check both versions (commands above). If either is missing or differs from 0.13.0, say so.
+1. Check both versions (commands above). If either is missing or differs from 0.17.0, say so.
 2. For work on files, open, edit and save in one session: a `run --script` file of `[{"tool": "doc_open", "args": {"path": "/abs/in.pdf"}}, ..., {"tool": "doc_save", "args": {"doc": 1, "path": "/abs/out.pdf"}}]`, run with `--root DIR --report`; or the same calls over MCP.
 3. For work the user should watch, start your own instance: `/Applications/PdfCraft.app/Contents/MacOS/PdfCraft --control ~/.pdfcraft-control.json &`. Keep the file in a folder only the user can write, never `/tmp`. With `--control` the launch never hands off to a running PdfCraft.
 4. Check the link: `pdfcraft-cli ui --control ~/.pdfcraft-control.json state`. Read which documents are open and which is active before any input.
 5. Make each logical change as one undoable step where a tool offers it: `form_set_props` with `fields` and `object_move` are atomic. `command_batch` is not (see Pitfalls).
-6. Look at the result and read it: `render_preview {"doc": 1, "page": 1, "max_side": 1024}`, `pdfcraft-cli render out.pdf --page 1 --out p1.png`, `pdfcraft-cli text out.pdf --page 1`; for the window, `ui ... screenshot --out window.png`.
-7. Save where the user says. `doc_save` to the same path appends an incremental update. To a new path it writes the whole file. Both writes are atomic.
+6. Look at the result and read it: `render_preview {"doc": 1, "page": 1, "max_side": 1024}`, `pdfcraft-cli render out.pdf --page 1 --out p1.png`, `pdfcraft-cli text out.pdf --page 1`; for the window, `ui ... screenshot --out window.png`. If `render_preview` returns a JSON part with `warnings` after the PNG, content was skipped or painted in a fallback colour: say so.
+7. Save where the user says. `doc_save` to the same path appends an incremental update, except after deleting pages from an unsigned file, which rewrites it whole so the deleted pages are gone. To a new path it writes the whole file. Both writes are atomic.
 
 ## Asking first
 
 - Tell the user before you start a second instance: its window takes keyboard focus, so what they are typing lands in your document. `open -g` does not always prevent it.
+- Never accept the update prompt. The desktop app checks GitHub for a newer release at every start *(source at the tag, not measured)*. For your own instance, add `--env CRAFT_VERSIONS_FILE=<scratch>/versions.json` holding `{"apps":{"pdfcraft":{"Pinned":"0.17.0"}}}`: a pinned entry skips the check.
 - Editing a document the user already has open, or saving over any file the user owns. Saving in place still changes the file.
-- `set` keys that are saved preferences (`theme`, `default-mode`, the `default-*` view keys). They change the user's app beyond this session.
+- `set` keys that are saved preferences (`theme`, `default-mode`, the `default-*` view keys, `show_page_edge_shadows`, `comment-tool-pinned`). They change the user's app beyond this session.
 - Redaction, sanitizing and flattening, which cannot be taken back once saved. Signing, creating a digital ID or trusting a certificate (`sign_document`, `sign_id_create`, `sign_trust`).
 - `doc_print` to a printer, and fetching OCR models or building from source: these reach a device or the network. Otherwise PdfCraft has no account, cloud or AI service to call.
 - Never quit or restart an instance the user started: it may hold unsaved work. Start a second one with `--control`. `quit` on a dirty window opens the Save/Don't save/Cancel prompt (`needs_confirmation: true`).
@@ -60,7 +61,7 @@ A desktop PDF workbench: view, search, organize, combine and split, comment, fil
 | PDF 1.0-1.7, 2.0 | yes | yes | 2.0-only features kept but not used; damaged files repaired |
 | Encrypted PDF (passwords) | yes | yes | saved under the same keys; certificate encryption not supported |
 | PNG, JPEG, TIFF, GIF, BMP, JPEG 2000, text | as a new PDF | PNG, JPEG, TIFF, text | no PCX; JPEG 2000 not written |
-| Word, PowerPoint, HTML, RTF | no | yes | "basic": text and tables flow, layout is lost; no `.xlsx`, `.doc` |
+| Word, PowerPoint, HTML, RTF, Markdown | no | yes | "basic": text and tables flow, layout is lost; no `.xlsx`, `.doc`; Markdown (`.md`) leaves images out, and `file-format-parity.md` still lists it as missing |
 | FDF, XFDF, XML, XDP data, CSV | import | export | form and comment data only |
 | PDF/A | yes | 2b and 3b, partial | PDF/X and PDF/UA are read only, never verified |
 
@@ -74,7 +75,8 @@ A desktop PDF workbench: view, search, organize, combine and split, comment, fil
 - **`ui` values that parse as JSON are sent as JSON.** *(docs, not measured)* `label=2024` arrives as a number, and the call fails. Quote it: `label='"2024"'`.
 - **`ui open` answers before the file is open.** *(docs, not measured)* The reply says `pending: true`, and `state` lists it in `pending_opens` until the open is done. A path already open only focuses its tab (`"focused": true`) and does not reload changes made on disk.
 - **`ui command` takes only an `id`.** *(docs, not measured)* It runs the command as the menu would. A command that needs input opens its dialog in the window. Drive the dialog with `inspect`/`click`/`type`, or make the edit headless.
-- **Input and screenshots wait for the window to be drawn.** *(docs, not measured)* If the window is hidden, minimized or fully covered, the call fails after 5 s with `the window is not being drawn` and the queued input is dropped. Bring your instance to the front and retry.
+- **Input and screenshots wait for the window to be drawn.** *(docs, not measured)* If the window is hidden, minimized or fully covered, the call fails after 5 s with `the window is not being drawn` and the queued input is dropped. Right after launch it fails with `the app was still starting`. Bring your instance to the front, wait for it to draw, and retry.
+- **Input queued before the document, a dialog or focus changes fails.** *(docs, not measured)* The source refuses it with `the document, dialog or focus changed before the input could be applied; nothing was done`. Nothing happened, so read `state` or `inspect` again and resend against what is there now.
 - **A control file outlives its app.** *(docs, not measured)* The app does not delete it, and each launch writes a new port and token. A stale file gives `can't reach the app on port N`. Check its `pid` is alive (`kill -0`) before trusting it.
 - **The macOS CLI zip ships no OCR models.** *(docs, not measured)* `batch --steps ocr` and the `ocr_*` tools report missing models as file errors. Set `PDFCRAFT_MODELS=/Applications/PdfCraft.app/Contents/Resources/models` to use the app's copy.
 

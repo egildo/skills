@@ -3,14 +3,11 @@
 //
 //   node fc.mjs <tool> '<json args>'
 //       one MCP tool call (get_node, screenshot, run_command, list_commands, inspect_ui...)
-//   node fc.mjs --steps <file.json> [--doc <path | name of an unsaved file>]
-//       the steps, [{command, params}] or {label, commands}, sent as ONE `batch`: one undo step,
-//       rolled back whole when a step fails. {"$ref": n} anywhere in params is the id step n
-//       returned (sent as the batch's own {"$step": n}, shifted past the pin; a {"$step"} you write
-//       is passed through unchanged, for nested batches). With --doc, `doc.list` is read just
-//       before and the batch starts with `doc.switch` to the one open file whose path (or, unsaved,
-//       name) matches; anything other than exactly one match is refused. Commands act on the tab
-//       in front, and tabs move.
+//   node fc.mjs --steps <file.json> [--doc <id | path | name of an unsaved file>]
+//       the steps, [{command, params, as?}] or {label, commands}, sent as written as ONE `batch`:
+//       one undo step, rolled back whole when a step fails. With --doc, the batch names its
+//       document: an id or a path goes as it is; a name is looked up in `doc.list` just before, and
+//       anything other than exactly one match is refused. The tab in front stays in front.
 //
 // Env: FIGCRAFT_PORT (the app's --control port, default 7979), FIGCRAFT_CLI (default
 // `figcraft-cli` on PATH), FIGCRAFT_SHOTS (folder for screenshots, default the current directory).
@@ -64,10 +61,6 @@ const call = async (name, toolArgs) => {
   }
   return out;
 };
-const toStep = (shift) => (v) => Array.isArray(v) ? v.map(toStep(shift))
-  : v && typeof v === 'object'
-    ? ('$ref' in v ? { $step: v.$ref + shift } : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, toStep(shift)(x)])))
-    : v;
 const show = (out) => out !== null && console.log(typeof out === 'string' ? out : JSON.stringify(out, null, 2));
 
 try {
@@ -77,19 +70,18 @@ try {
     show(await call(args[0], JSON.parse(args[1] ?? '{}')));
   } else {
     const spec = JSON.parse(readFileSync(args[1], 'utf8'));
-    const pin = [];
-    if (docWanted) {
+    let document = docWanted && /^\d+$/.test(docWanted) ? Number(docWanted) : docWanted;
+    if (typeof document === 'string' && !document.startsWith('/')) {
       const docs = await call('run_command', { command: 'doc.list', params: {} });
-      const hit = docs.filter((d) => d.path === docWanted || (!d.path && d.name === docWanted));
+      const hit = docs.filter((d) => d.name === docWanted);
       if (hit.length !== 1) {
-        console.log(`--doc ${docWanted}: ${hit.length} open files match`, JSON.stringify(docs.map(({ index, name, path }) => ({ index, name, path }))));
+        console.log(`--doc ${docWanted}: ${hit.length} open files match`, JSON.stringify(docs.map(({ id, name }) => ({ id, name }))));
         process.exit(1);
       }
-      pin.push({ command: 'doc.switch', params: { index: hit[0].index } });
+      document = hit[0].id;
     }
-    const steps = (Array.isArray(spec) ? spec : spec.commands)
-      .map((s) => ({ command: s.command, params: toStep(pin.length)(s.params ?? {}) }));
-    show(await call('batch', { label: spec.label, commands: [...pin, ...steps] }));
+    const commands = Array.isArray(spec) ? spec : spec.commands;
+    show(await call('batch', { label: spec.label, commands, ...(document == null ? {} : { document }) }));
   }
 } finally {
   p.stdin.end();
