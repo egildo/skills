@@ -1,6 +1,6 @@
-# FigCraft 0.14.0: fields, bindings and read-back
+# FigCraft 0.15.1: fields, bindings and read-back
 
-The docs list the `node.set` keys and the `variable.bind` fields, each in its own place. This table puts them side by side with Figma's name and with what `node.get` reads back. Measured on 0.14.0. The live command list's `params` text for `node.set` and `variable.bind` is still the reference for spellings.
+The docs list the `node.set` keys and the `variable.bind` fields, each in its own place. This table puts them side by side with Figma's name and with what `node.get` reads back. Measured on 0.15.1. The live command list's `params` text for `node.set` and `variable.bind` is still the reference for spellings.
 
 ## The field table
 
@@ -13,15 +13,15 @@ The docs list the `node.set` keys and the `variable.bind` fields, each in its ow
 | sizing | `sizingH`, `sizingV`: `fixed`, `hug`, `fill`; `minWidth`… (`null` removes); `absolute` | `width`, `height`, `minWidth`… | `sizing: {horizontal, vertical}` |
 | grid layout | `gridColumns`, `gridRows`, `columnTracks` / `rowTracks` as `[60, "1fr", "auto"]`; on a child `gridColumn`, `gridRow`, `gridColumnSpan`, `gridRowSpan`, `gridAlignH`, `gridAlignV` | | `layout.columnTracks: [{sizing: fixed / fill / hug, value}]`; a child's `gridCell` |
 | corners | `cornerRadius` (one number or `[tl, tr, br, bl]`), `cornerSmoothing` | `cornerRadius`, `topLeftRadius`, `topRightRadius`, `bottomRightRadius`, `bottomLeftRadius` | `cornerRadius`, one number or four |
-| strokes | `strokes`, `stroke` (as `fill`), `strokeWeight`, `strokeTopWeight`…, `strokeAlign`, `strokeJoin`, `strokeCap`, `dashes` | `stroke`, `strokes/<i>/color`, `strokeWeight`, `strokeTopWeight`… | `strokeWeight`, `strokeSides: [t, r, b, l]`, `strokeAlign`, `strokeJoin`, `dashes` |
+| strokes | `strokes`, `stroke` (as `fill`), `strokeWeight`, `strokeTopWeight`…, `strokeAlign`, `strokeJoin`, `strokeCap` (or `startCap`, `endCap`), `dashes`, `dashCap` | `stroke`, `strokes/<i>/color`, `strokeWeight`, `strokeTopWeight`… | `strokeWeight`, `strokeSides: [t, r, b, l]`, `strokeAlign`, `strokeJoin`, `dashes`, `dashCap` |
 | fills | `fills` (colours, paints, gradients), `fill` (a colour, `"none"`, or `{"$var": "<variable>"}` to bind) | `fill` (the first paint), `fills/<i>/color`, `fills/<i>/stops/<j>/color` | `fills`; a gradient as `{type: "gradient", kind, stops: [{color, position}], from, to, width}` |
 | effects | `effects: [{type: dropShadow, color, offset: [x, y], radius, spread, showBehind?, blend?, visible?}, {type: layerBlur, radius}…]` | `effects/<i>/<offsetX, offsetY, radius, startRadius, spread, color>` | the same shape, colours as `{r, g, b, a}` |
 | layout grids | `grids: [{kind: columns / rows / grid, count, gutter, offset, size, align: stretch / min / center / max, color, visible}]` | `layoutGrids/<i>/<size, count, gutter, offset>` | `grids` |
 | constraints | `constraints: {horizontal: left / right / leftRight / center / scale, vertical: top / bottom / topBottom / center / scale}` | | `constraints`, on children of plain frames and absolute children only |
 | `blendMode` | `blend`: camel case, `pass through`, `plusDarker`, `plusLighter` | | `blend` |
 | `opacity`, `visible`, `x`, `y`, `rotation` | the same names; `opacity` from 0 to 1 | `opacity` (a percentage), `visible`, `x`, `y` | the same |
-| text | `characters`, `fontFamily`, `fontStyle`, `fontSize`, `lineHeight` (`auto`, px, `"150%"`), `letterSpacing` (px, `"2%"`), `textAutoResize` (`widthAndHeight`, `height`, `none`, `truncate`), `textCase`, `textDecoration`, `paragraphSpacing`, `paragraphIndent`, `maxLines` | `characters`, `fontSize`, `lineHeight`, `letterSpacing`… | the same |
-| an instance's properties | `instance.setProperties {properties}` | `componentProperties/<name>` (text and boolean properties) | `componentProperties`, without variant values: read those with `component.properties` |
+| text | `characters`, `fontFamily`, `fontStyle`, `fontSize`, `lineHeight` (`auto`, px, `"150%"`), `letterSpacing` (px, `"2%"`), `textAutoResize` (`widthAndHeight`, `height`, `none`, `truncate`), `textCase`, `textDecoration`, `paragraphSpacing`, `paragraphIndent`, `maxLines`, `wrapStyle` (`auto`, `balance`, `pretty`; taken though the live list's text omits it) | `characters`, `fontSize`, `lineHeight`, `letterSpacing`… | the same; `wrapStyle` absent for `auto` |
+| an instance's properties | `instance.setProperties {properties}` | `componentProperties/<name>` (text and boolean properties; a variant property takes a string variable naming a value, and switches the variant) | `componentProperties`, without variant values: read those with `component.properties` |
 | layer data | `pluginData: {key: "string"}` | | `pluginData`, only when there is some |
 
 Line caps are `none`, `round`, `square`, `lineArrow`, `triangleArrow`, `diamondFilled` and `circleFilled`. Figma's `ARROW_LINES` is `lineArrow` and `ARROW_EQUILATERAL` is `triangleArrow`; Figma's `TRIANGLE_FILLED` has no match.
@@ -49,7 +49,7 @@ FigCraft keeps these, saves them and draws them, but no read returns them (`node
 - a layer's link to a component property (`component.bindProperty`);
 - a frame's explicit variable mode (`variable.setMode`);
 - `paragraphIndent`;
-- a line's `strokeCap`.
+- a line's caps (`strokeCap`, `startCap`, `endCap`).
 
 Reported only in one place:
 - `paragraphSpacing`, in `inspect.properties` only.

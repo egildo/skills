@@ -5,7 +5,7 @@ description: DeckCraft is the open-source, pure-Rust PowerPoint alternative from
 
 # DeckCraft
 
-**Pinned:** DeckCraft 0.14.1 (app and CLI), docs tag `v0.14.1`, checked 2 November 2026. From the docs and source at the tag: not measured.
+**Pinned:** DeckCraft 0.15.1 (app and CLI), docs tag `v0.15.1`, checked 5 November 2026. From the docs and source at the tag: not measured.
 
 Two layers, kept apart. DeckCraft's docs at the pinned tag and its live command list are the reference for commands, parameters and protocol. This skill holds how to drive it and what was learned by doing. If the two disagree about a command, the docs and the live list win. If the installed version is not the pinned one, say so before relying on anything below.
 
@@ -19,16 +19,16 @@ It is not PowerPoint: no VBA, no add-ins, no `.ppt` or `.odp`, no cloud or AI fe
 
 ## The references
 
-- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/deckcraft/v0.14.1/docs/<file>`
+- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/deckcraft/v0.15.1/docs/<file>`
   - `mcp.md`: the tool table first, then "Confining file access".
   - `control-protocol.md`: the method table and the server limits above it.
   - `file-format-parity.md`: the "Documents" table, then "PPTX coverage".
   - `gaps.md`: "Ranked: the top 15", then "File formats".
   - `architecture.md`: "Commands and frontends".
-- README at the tag (sections "Agents, CLI and MCP", "Logs"): `curl -sL https://raw.githubusercontent.com/storytold/deckcraft/v0.14.1/README.md`
+- README at the tag (sections "Agents, CLI and MCP", "Logs"): `curl -sL https://raw.githubusercontent.com/storytold/deckcraft/v0.15.1/README.md`
 - The live command list: `deckcraft-cli commands [FILTER]`, then `deckcraft-cli describe COMMAND` for one command's parameters. Over MCP: `list_commands`. Against the running app: `deckcraft-cli app --port 7990 --method engine.commands`.
 - CLI help: `deckcraft-cli help`, `deckcraft-cli help run`. `help run` lists the conventions the ids don't say (points, 0-based slides, selection).
-- Release notes: `https://github.com/storytold/deckcraft/releases/tag/v0.14.1`
+- Release notes: `https://github.com/storytold/deckcraft/releases/tag/v0.15.1`
 
 ## Surfaces
 
@@ -79,7 +79,6 @@ It is not PowerPoint: no VBA, no add-ins, no `.ppt` or `.odp`, no cloud or AI fe
 
 ## Pitfalls
 
-- **Saving to an image name writes a `.deckcraft` zip.** *(docs, not measured)* `file.save`, `run --save`, MCP `save_presentation` and `app.save` to `.png` or `.jpg` write native deck bytes under that name. Use `file.export`, `run --export` or MCP `export` for pictures.
 - **`file.save` to `.pdf` or `.pptx` moves the deck there.** *(docs, not measured)* The deck's path becomes that file and it is marked saved. A later bare `file.save` writes that format again, with default PDF options. Save the deck as `.deckcraft`; write copies with `file.export`.
 - **A save with no path writes nothing and still succeeds.** *(docs, not measured)* `file.save` on an untitled deck answers `{"needsPath": true}`, not an error. Always pass `path`, and check the reply has `bytes`.
 - **`batch` is not a transaction.** *(docs, not measured)* It stops at the first error, but the commands before it stay applied, each as its own undo step. Read the returned list to see which ran. `keepGoing: true` runs past errors.

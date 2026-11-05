@@ -5,7 +5,7 @@ description: LightCraft is the open-source, pure-Rust Lightroom alternative from
 
 # LightCraft
 
-**Pinned:** LightCraft 0.17.0 (app and CLI), docs tag `v0.17.0`, checked 2 November 2026. From the docs and source at the tag: not measured.
+**Pinned:** LightCraft 0.18.1 (app and CLI), docs tag `v0.18.1`, checked 5 November 2026. From the docs and source at the tag: not measured.
 
 Two layers, kept apart. LightCraft's docs at the pinned tag and its live command list are the reference for commands, parameters and protocol. This skill holds how to drive it and what was learned by doing. If the two disagree about a command, the docs and the live list win. If the installed version is not the pinned one, say so before relying on anything below.
 
@@ -18,15 +18,15 @@ Not Lightroom: no Lightroom plug-ins, no Adobe camera or lens profiles (`.dcp`, 
 
 ## The references
 
-- The docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/lightcraft/v0.17.0/docs/<file>`. Read first:
+- The docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/lightcraft/v0.18.1/docs/<file>`. Read first:
   - `mcp.md`: "Tools" (helpers and their defaults), then "One-shot commands: `lightcraft-cli run`" and "Other CLI subcommands".
   - `control-protocol.md`: "Methods", "External controllers" (reading state, undo grouping) and "Headless rendering".
   - `xmp-interop.md`: "Sidecar files". `lightroom-catalog-import.md` for `.lrcat`.
   - `file-format-parity.md` for formats; `gaps.md` for what is missing, ranked.
-  - `ai-masks.md`, `faces.md`, `denoise.md` before any optional model; `merge.md`, `slideshow.md` for those modules.
-- The README at the tag ("Built for agents", "Feature status"): `curl -sL https://raw.githubusercontent.com/storytold/lightcraft/v0.17.0/README.md`.
+  - `ai-masks.md`, `faces.md`, `denoise.md` before any optional model, `lens-profiles.md` before the lens database; `merge.md`, `slideshow.md` for those modules.
+- The README at the tag ("Built for agents", "Feature status"): `curl -sL https://raw.githubusercontent.com/storytold/lightcraft/v0.18.1/README.md`.
 - The live command list: `lightcraft-cli commands --json` (engine commands) and `lightcraft-cli controls --json` (slider ids, ranges, defaults). Against a running app: `lightcraft-cli run --connect 127.0.0.1:7980 engine.commands` adds the UI commands such as `view.detail`. Over MCP: `command_list`.
-- Release notes: `https://github.com/storytold/lightcraft/releases/tag/v0.17.0`.
+- Release notes: `https://github.com/storytold/lightcraft/releases/tag/v0.18.1`.
 
 ## Surfaces
 
@@ -57,7 +57,7 @@ Version rule: use the CLI and the app from the same release. On macOS the CLI is
 - Any change in a library the user already uses: ratings, flags, develop edits, albums, deletes (even to Recently Deleted), a Lightroom catalog import into it (`file.importLightroom` with `into: "new"` also creates and opens a new library), `slideshow.templates.apply` (no undo).
 - Anything that writes into the user's photo folders: XMP sidecars (`photo.saveMetadataToFile`, or edits when the library has `autoWrite` on), `destinationMode: "sameAsOriginal"`, `lightcraft-cli merge` (writes `<first>-HDR.dng` next to the first input), and `import` with `mode: "move"` (removes the originals from the source).
 - Overwriting a saved file: an export to an existing `path`, or `conflict: "overwrite"`.
-- Anything that leaves the machine or accepts terms: model downloads for Object/Describe masks, faces or denoise (each has its own licence), `LIGHTCRAFT_SAM3_REMOTE` or `LIGHTCRAFT_DENOISE_URL` (send pixels to another computer), `lightcraft-cli denoise-serve` (opens a TCP port), and `addToPhotos` (into Apple Photos, so iCloud Photos when that is on). The desktop app itself asks GitHub for a newer release at each start; never accept its update prompt, which installs the update and closes the app.
+- Anything that leaves the machine or accepts terms: model downloads for Object/Describe masks, faces or denoise (each has its own licence), the lensfun lens database (CC BY-SA 3.0: the first-launch offer's **Download**, Settings' **Download Lens Database**, `lens.downloadDatabase`), `LIGHTCRAFT_SAM3_REMOTE` or `LIGHTCRAFT_DENOISE_URL` (send pixels to another computer), `lightcraft-cli denoise-serve` (opens a TCP port), and `addToPhotos` (into Apple Photos, so iCloud Photos when that is on). The desktop app itself asks GitHub for a newer release at each start; never accept its update prompt, which installs the update and closes the app.
 - Never send `app.quit` to an instance the user started: it may hold unsaved work or running tasks. Start a second one instead.
 - After a dropped connection ("the outcome is unknown"), read the state (`photo.inspect`, `library.state`) before retrying: the command may have run. MCP connect mode never resends it for you.
 
@@ -88,6 +88,7 @@ Imported Lightroom edits will not look identical: the project says render fideli
 - **White balance in settings JSON is relative unless it says Kelvin.** *(docs, not measured)* A `settings.wb` (in `develop.merge`, a preset or `render --settings`) with `temp`/`tint` and no `"scale": "kelvin"` means 6500 = as shot, even on raws with Kelvin. Use `values` with `wb.temp`, or add the scale.
 - **On macOS, `ui.key` does not fire menu shortcuts.** *(docs, not measured)* It injects egui keys, and the native menu owns the accelerators. Run the command by id through `engine.execute` instead.
 - **An update prompt at start takes the keyboard.** *(docs, not measured)* When a newer release exists, the desktop app opens an update prompt as it starts; while it is open, no keyboard shortcut reaches the library. Take a `ui.screenshot` of a new instance before driving it by keys, and do not accept the update.
+- **A second instance answers the lens database offer for the user.** *(docs, not measured)* An instance started without `--memory` or `--demo` reads and saves the user's app settings (`ui.json` → `lensDatabase`). If they never answered, it shows "Download lens profiles?", and once shown the offer counts as Not Now at every later start. If they once chose Download and the database is missing or older, it downloads from GitHub at start without asking. Tell the user before starting one.
 - **A raw can look fine and still be preview-only.** *(docs, not measured)* A raw the decoder refuses shows its embedded JPEG. Check `previewOnly` in `catalog.query` before promising a develop or a full-resolution export.
 
 ## Not there yet
@@ -98,4 +99,5 @@ Imported Lightroom edits will not look identical: the project says render fideli
 - AVIF import; custom ICC output profiles.
 - Super Resolution, Raw Details, generative or content-aware remove; AI Denoise for X-Trans.
 - Writing back to a Lightroom catalog; Lightroom plug-ins; Adobe `.dcp` / `.lcp` profiles.
-- Optional models are not bundled: Object/Describe masks, face detection and AI Denoise need a separate install. Subject, Sky and Background masks are classical heuristics.
+- A lens profile picker or own calibration: lensfun profiles are matched automatically and not validated against Lightroom.
+- Optional models are not bundled: Object/Describe masks, face detection and AI Denoise need a separate install. Subject, Sky and Background masks are classical heuristics. The lens database is not bundled either.

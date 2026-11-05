@@ -5,7 +5,7 @@ description: PhotoCraft is the open-source, pure-Rust Photoshop alternative from
 
 # PhotoCraft
 
-**Pinned:** PhotoCraft 0.19.0 (app and CLI), docs tag `v0.19.0`, checked 2 November 2026 on macOS. Measured on the running app.
+**Pinned:** PhotoCraft 0.20.2 (app and CLI), docs tag `v0.20.2`, checked 5 November 2026 on macOS. Measured on the running app.
 
 Two layers, kept apart. PhotoCraft's docs at the pinned tag and its live command list are the reference for commands, parameters and protocol. This skill holds how to drive it and what was learned by doing. If the two disagree about a command, the docs and the live list win. If the installed version is not the pinned one, say so before relying on anything below.
 
@@ -17,13 +17,14 @@ It is not Photoshop: no `.8BF`, CEP or UXP plug-ins (only its own WebAssembly pl
 
 ## The references
 
-- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/photocraft/v0.19.0/docs/<file>`. Read first:
+- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/photocraft/v0.20.2/docs/<file>`. Read first:
   - `control-protocol.md`: *Methods* (control port), *Engine commands* (what automation refuses), *MCP bridge*, *Headless server*, *Transport limits*.
   - `mcp.md`: MCP tools, `command_batch` semantics, recovery after a failed batch.
   - `file-format-parity.md`: what each format keeps; `kra.md`, `xcf.md`, `ora.md`, `pdn.md` for those formats.
   - `gaps.md`: what is missing, by area. `plugins.md`: the WebAssembly plug-in API.
+  - `atn.md`: which Photoshop Actions steps map to commands, and what happens to the rest.
 - Live command list, with each command's `params` doc: `photocraft-cli commands --json --filter <text>` (headless, no app needed), or `engine.commands` on the control port (always the whole list: it takes no filter), or the MCP tool `command_list {"filter": …}`.
-- Release notes: `https://github.com/storytold/photocraft/releases/tag/v0.19.0`.
+- Release notes: `https://github.com/storytold/photocraft/releases/tag/v0.20.2`.
 - Versions: `photocraft-cli --version` and `/Applications/PhotoCraft.app/Contents/MacOS/PhotoCraft --version`. The app's launch flags and environment variables: `PhotoCraft --help`.
 
 ## Surfaces
@@ -67,7 +68,7 @@ It is not Photoshop: no `.8BF`, CEP or UXP plug-ins (only its own WebAssembly pl
 |---|---|---|---|
 | `.pcraft` | yes | yes | Native; keeps everything. |
 | PSD, PSB | yes | yes | Broad but not yet reliable in Photoshop (the docs' top gap). Keep the `.pcraft`. |
-| TIFF | yes | yes | Flat unless `tiffLayers` / `--tiff-layers`. |
+| TIFF | yes | yes | Flat unless `tiffLayers` / `--tiff-layers`. Compression, pyramid and transparency through `tiffCompression`, `tiffPyramid`, `tiffTransparency` on `app.save`; no JPEG compression inside TIFF. |
 | PNG, JPEG, WebP, BMP, TGA, EXR, HDR | yes | yes | Flat: `app.save` warns "layer(s) flattened". GIF and APNG open the first frame only. |
 | JPEG XL | no | yes | Lossless export only; drops the ICC profile and resolution, with a warning. |
 | PDF | no | yes | One flattened page; `app.open` of a PDF fails. |
@@ -76,6 +77,7 @@ It is not Photoshop: no `.8BF`, CEP or UXP plug-ins (only its own WebAssembly pl
 | SVG | yes | no | Opens as shape layers or a vector smart object. |
 | Camera raw | partial | – | DNG, CR2, NEF, ARW and others; CR3 gives only its embedded preview. |
 | AVIF | no | no | Write is a build option, off in release builds. |
+| Photoshop Actions `.atn` | yes | yes | `actions.load` / `actions.save`, CLI `batch --actions`. Mapped steps play as commands; any other step is kept, and playback stops on it by name. Reads version 12 and 16 sets, writes 16. |
 
 ## Pitfalls
 

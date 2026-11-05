@@ -5,7 +5,7 @@ description: FigCraft is the open-source, pure-Rust Figma alternative from story
 
 # FigCraft
 
-**Pinned:** FigCraft 0.14.0 (app and CLI), docs tag `v0.14.0`, checked 2 November 2026 on macOS. Measured on the running app.
+**Pinned:** FigCraft 0.15.1 (app and CLI), docs tag `v0.15.1`, checked 5 November 2026 on macOS. Measured on the running app.
 
 Two layers, kept apart. FigCraft's docs at the pinned tag and its live command list are the reference for commands, parameters and protocol. This skill holds how to drive it and what was learned by doing. If the two disagree about a command, the docs and the live list win. If the installed version is not the pinned one, say so before relying on anything below.
 
@@ -15,12 +15,12 @@ An interface design and prototyping app: pages, frames, auto layout, components 
 
 ## The references
 
-- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/figcraft/v0.14.0/docs/<file>`
+- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/figcraft/v0.15.1/docs/<file>`
   - `mcp.md`: read "Conventions agents must know" before the first build, then "Naming the document", "Step references" and "Paint, effect and layout grid lists".
   - `control-protocol.md`: the socket, its limits, the methods, and "Windows" (which window a request goes to).
   - `cli.md`: the subcommands, `run` scripts, the automation roots.
 - Live command list, from the running app: `node scripts/fc.mjs list_commands '{"filter":"<word>"}'` (through `--attach`), or the control method `engine.commands`. `figcraft-cli commands --filter <word>` lists the CLI's own build. Parameter names come from here; never guess them.
-- Release notes: `https://github.com/storytold/figcraft/releases/tag/v0.14.0`
+- Release notes: `https://github.com/storytold/figcraft/releases/tag/v0.15.1`
 - [`references/fields.md`](references/fields.md): each field's `node.set` key, `variable.bind` field and read-back side by side, with Figma's name; the write-then-bind cases; what is reported and what is only kept; slots; library copies.
 
 ## Surfaces
@@ -58,7 +58,7 @@ An interface design and prototyping app: pages, frames, auto layout, components 
 - Never quit, or `file.close {force}`, an instance or tab you did not open: it may hold unsaved work. Start a second instance instead.
 - Get a yes before overwriting a saved file: `file.save {path}` replaces it silently, and `figcraft-cli connect publish` saves the design file in place.
 - Get a yes before anything that reaches a server: every `collab.*` command (`collab.share` defaults to publishing online), `library.publishToServer`, `plugin.directory.*`, `figcraft-cli plugin publish`, `font.download`.
-- Never accept the update prompt: the app checks for a newer release when it starts, and updating replaces the app the user runs. For your own instance, add `--env CRAFT_VERSIONS_FILE=<scratch>/versions.json` holding `{"apps":{"figcraft":{"Pinned":"0.14.0"}}}`: a pinned entry skips the check *(source at the tag, not measured)*.
+- Never accept the update prompt: the app checks for a newer release when it starts, and updating replaces the app the user runs. For your own instance, add `--env CRAFT_VERSIONS_FILE=<scratch>/versions.json` holding `{"apps":{"figcraft":{"Pinned":"0.15.1"}}}`: a pinned entry skips the check *(source at the tag, not measured)*.
 - After a transport failure, read the state (`doc.list`, `get_node`) before retrying: an attached call is never replayed and may have completed. A timeout error says whether the request was dropped or is still running *(docs, not measured)*.
 
 ## Formats
@@ -81,19 +81,23 @@ An interface design and prototyping app: pages, frames, auto layout, components 
 
 **A call without `document` acts on the tab in front.** Layer ids are per file: id 2 exists in every file, so a `get_node` or `set_properties` after the user switches tabs answers about the wrong file with no error. Give every call `document` (an `id` from `doc.list`, or a path), and read `doc.list` again when tabs open or close.
 
-**`file.save` overwrites without asking, even a file another tab holds.** Two tabs then claim one path, and a `document` path names the tab that held it first, not the one that just saved. `doc.list` shows an agent no paths, so check with `ls` before saving.
+**`file.save {path}` overwrites without asking, even a file another tab holds or another app changed.** Two tabs then claim one path, and a `document` path names the tab that held it first, not the one that just saved. Only a save without `path` checks the disk, and is refused: `the file changed on disk since it was opened or saved here`. `doc.list` shows an agent no paths, so check with `ls` before saving.
 
 **`variable.bind` accepts any field name.** A misspelt field (`filll`) answers ok, shows in `boundVariables` and binds nothing. Check that the value moved: `get_node` after `variable.setMode`.
 
-**Unknown names are refused, with three gaps.** Commands, tools, batch steps, `node.set` props and effects refuse names they don't take. Still ignored: unknown keys in layout grid items; unknown keys beside `props` in `node.set` (known props are taken there too, so a misspelling there passes); and `inspect.properties {ids}`, which inspects the selection (it takes `id`).
+**Unknown names are refused, with three gaps.** Commands, tools, batch steps, `node.set` props and effects refuse names they don't take. Still ignored: unknown keys in layout grid items; every key beside `props` in `node.set`, known or not, so put them all inside `props`; and `inspect.properties {ids}`, which inspects the selection (it takes `id`).
 
-**Some fields are kept but never read back.** A frame's variable mode, a layer's link to a component property, `paragraphIndent` and a line's `strokeCap` are saved and drawn, but no read shows them. `paragraphSpacing` shows only in `inspect.properties`; an exposed nested instance only in `instance.exposed {id}` on an instance of its main. `blend` reads back the same for `normal` and `pass through`. Keep your own record of what you set (`references/fields.md`).
+**Some fields are kept but never read back.** A frame's variable mode, a layer's link to a component property, `paragraphIndent` and a line's caps (`strokeCap`, `startCap`, `endCap`) are saved and drawn, but no read shows them. `paragraphSpacing` shows only in `inspect.properties`; an exposed nested instance only in `instance.exposed {id}` on an instance of its main. `blend` reads back the same for `normal` and `pass through`. Keep your own record of what you set (`references/fields.md`).
 
 **Writing a value to a bound field unhooks its variable.** Write every value first, then bind. The four corners are one field, and so are the four stroke sides: a corner list written unhooks a bound `cornerRadius`, and a side written unhooks every side binding and a bound `strokeWeight`. When a corner or side differs, write the list, then bind each part.
 
 **Variable ids are reused, node ids are not.** Delete `VariableID:3`, create another variable, and it is `VariableID:3` again. Don't hold a variable id across a delete. A library's copies in `variable.list` carry the library's id as a prefix, but their mode ids do not, and can equal the file's own.
 
-**A font style the family lacks is accepted silently.** `fontStyle: "Medium"` on a family without it reads back as `Medium` and draws another style, and `text.missingFonts` lists only missing families. Check `text.fonts {"family":"<name>"}` first and say which style was substituted.
+**A font style the family lacks is accepted.** `node.set` answers ok with a `warnings` line (``Inter has no `Medium` style: it draws in Regular, the nearest``); `text.create` and `node.create` with the same style in `props` say nothing, and nor does any call for a name that is no weight (`Wobbly`). The style reads back as asked, and `text.missingFonts` lists only missing families. Check `text.fonts {"family":"<name>"}` first and say which style was substituted.
+
+**A size equal to the room an auto layout frame leaves turns the child to Fill.** `node.set {width: 180}` on a child of a 200 px vertical frame with 10 px padding reads back `sizing.horizontal: "fill"`, and the child then follows the frame. Give `sizingH: "fixed"` (or `sizingV`) in the same call to keep it fixed. Creating a layer at that size does not do it.
+
+**A text keeps `maxLines` or `maxHeight`, not both.** Setting one drops the other with no warning, and given in one call `maxLines` wins whatever the order.
 
 **A CSS border takes room even when transparent; a FigCraft frame without a stroke does not.** A web button with `border: 1px solid transparent` is 2 px wider than its frame. Give every variant a 1 px inside stroke, transparent where the page has none; `strokesIncluded` is on by default for auto layout, so it counts like padding.
 

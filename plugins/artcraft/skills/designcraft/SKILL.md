@@ -5,7 +5,7 @@ description: DesignCraft is the open-source, pure-Rust InDesign alternative from
 
 # DesignCraft
 
-**Pinned:** DesignCraft 0.16.0 (app and CLI), docs tag `v0.16.0`, checked 2 November 2026 on macOS. Measured on the running app.
+**Pinned:** DesignCraft 0.17.2 (app and CLI), docs tag `v0.17.2`, checked 5 November 2026 on macOS. Measured on the running app.
 
 Two layers, kept apart. DesignCraft's docs at the pinned tag and its live command list are the reference for commands, parameters and protocol. This skill holds how to drive it and what was learned by doing. If the two disagree about a command, the docs and the live list win. If the installed version is not the pinned one, say so before relying on anything below.
 
@@ -15,14 +15,14 @@ A desktop publishing and page layout app: spreads, parent pages, threaded text f
 
 ## The references
 
-- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/designcraft/v0.16.0/docs/<file>`
+- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/designcraft/v0.17.2/docs/<file>`
   - `agents.md`: the three surfaces, script syntax with `$N.path` references, `run` export rules.
   - `mcp.md`: read "Modes", "Coordinates" and "Text offsets" first (offsets are UTF-8 bytes, not characters).
   - `control-protocol.md`: the method table and the framing rules.
   - `gaps.md`: what is missing, ranked. `file-format-parity.md`: read and write fidelity per format.
 - Live command list: `designcraft-cli commands [FILTER]` and `designcraft-cli describe <id>` (engine commands only). From the running app, `designcraft-cli app --port $PORT --method engine.commands` also lists the UI commands, marked `"ui": true`.
 - `designcraft-cli script --help` prints the script syntax.
-- Release notes: `https://github.com/storytold/designcraft/releases/tag/v0.16.0`
+- Release notes: `https://github.com/storytold/designcraft/releases/tag/v0.17.2`
 
 ## Surfaces
 
@@ -31,19 +31,19 @@ A desktop publishing and page layout app: spreads, parent pages, threaded text f
 - **MCP, connected.** `designcraft-cli mcp --connect $PORT`. Every change shows in the app's window. Use it when the user wants to watch, or when you need UI commands, `screenshot` or dialogs. The confinement flags cannot be combined with `--connect`.
 - **Control port.** Start the app with `--control <port>`. It serves JSON lines on `127.0.0.1` with no authentication and no token. `designcraft-cli app --port $PORT <command> '<json>'` runs a command, and `designcraft-cli app --port $PORT --method <method> '<json>'` calls any method (`ui.inspect`, `ui.render`, `document.inspect`, ...). This is the simplest surface from a shell.
 - **Not there:** the web build has no control channel. No surface asks for a login.
-- **Version rule.** Compare `designcraft-cli --version` with `/Applications/DesignCraft.app/Contents/MacOS/DesignCraft --version` (both print `0.16.0` at the pin). The docs do not say what breaks when they differ, so treat a mismatch as unsupported and say so.
+- **Version rule.** Compare `designcraft-cli --version` with `/Applications/DesignCraft.app/Contents/MacOS/DesignCraft --version` (both print `0.17.2` at the pin). The app carries its own CLI at `/Applications/DesignCraft.app/Contents/MacOS/designcraft-cli`, updated with the app; when the one on PATH differs, use that one. The docs do not say what breaks when they differ, so treat a mismatch as unsupported and say so.
 
 ## Driving it
 
 1. Start your own instance on a free port, not 7979 (the docs' port, which another instance may hold; check with `lsof -nP -iTCP:$PORT -sTCP:LISTEN`). Give it its own profile so the user's preferences and recovery files stay untouched, and a versions file so it does not check GitHub for updates (see Pitfalls):
-   `echo '{"apps":{"designcraft":{"Pinned":"0.16.0"}}}' > /abs/scratch/versions.json`
+   `echo '{"apps":{"designcraft":{"Pinned":"0.17.2"}}}' > /abs/scratch/versions.json`
    `open -n --env DESIGNCRAFT_CONFIG_DIR=/abs/scratch/profile --env CRAFT_VERSIONS_FILE=/abs/scratch/versions.json -a /Applications/DesignCraft.app --args --control $PORT`
    then `until nc -z 127.0.0.1 $PORT; do sleep 0.5; done`. Note its PID: `lsof -nP -iTCP:$PORT -sTCP:LISTEN`.
 2. Check the link: `designcraft-cli app --port $PORT --method ui.inspect`. Read `documents` (title, `dirty`), `activeDocument` and `dialog`. A fresh app shows the start screen with no document, and `document.inspect` then fails with `no document open`.
 3. Make a document: `designcraft-cli app --port $PORT file.new '{"preset":"A4","pages":2}'` returns `{index}` and makes it active. Every later command acts on the active document. Confirm with `document.list` before each editing session.
 4. Make each logical change one undoable step: write the lines to `change.dcs` (one `command.id {json}` per line), then
    `designcraft-cli app --port $PORT script.run "$(python3 -c 'import json,sys; print(json.dumps({"text": open(sys.argv[1]).read()}))' change.dcs)"`.
-   On success it is one undo; on failure nothing is applied. Single commands go through `designcraft-cli app --port $PORT <id> '<json>'`. Check parameters with `designcraft-cli describe <id>` first.
+   On success it is one undo; on failure nothing is applied. It does not check its steps' parameter names (see Pitfalls). Single commands go through `designcraft-cli app --port $PORT <id> '<json>'`. Check parameters with `designcraft-cli describe <id>` first.
 5. Read back what changed: `--method document.inspect` (items with `kind`, `bounds` and `story`; stories with `overset`), `type.selectionAttrs` for text formatting, `font.list` for missing fonts. A success reply proves little here (see Pitfalls).
 6. Look at it: `designcraft-cli app --port $PORT --method ui.render '{"path":"/abs/p0.png","page":0,"scale":0.5}'`, then open the PNG and look at it. `--method ui.screenshot '{"path":"/abs/win.png"}'` captures the whole window.
 7. Save where the user says, with absolute paths: `file.saveAs '{"path":"/abs/name.designcraft"}'`, `file.exportPdf '{"path":"/abs/name.pdf","standard":"x4"}'`. Then `designcraft-cli validate-pdf /abs/name.pdf` checks PDF/X-4 or PDF/X-1a, whichever the file claims.
@@ -75,11 +75,13 @@ A desktop publishing and page layout app: spreads, parent pages, threaded text f
 
 ## Pitfalls
 
-**Unknown keys fail, wrong values pass.** Every surface rejects an unknown parameter (`unknown parameter ...; the command takes: ...`), even though `agents.md` says most are ignored. A misspelled value is accepted: `frame.create {"content":"txt"}` and `{"shape":"circle"}` both return an id and make a plain rectangle, and `object.fit {"mode":"nonsense"}` returns `null`. Check `kind` in `document.inspect`.
+**Unknown keys fail, wrong values pass.** A single command, `run --cmd`, `designcraft-cli script` and MCP `batch` reject an unknown parameter (`unknown parameter ...; the command takes: ...`), even though `agents.md` says most are ignored. A misspelled value is accepted: `frame.create {"content":"txt"}` and `{"shape":"circle"}` both return an id and make a plain rectangle, and `object.fit {"mode":"nonsense"}` returns `null`. Check `kind` in `document.inspect`.
 
 **`frame.create` with `text` leaves a caret, not a selection.** A `type.char` right after it formats only the empty insertion point, still returns success, and the text keeps its size. Run `text.select {"story":S,"anchor":0,"focus":<length>}` first, then check with `type.selectionAttrs`.
 
-**A font that does not exist is accepted.** `type.char {"attrs":{"fontFamily":"No Such Font"}}` stores that name and draws a substitute. `font.list` shows it as `"missing": true` with `resolvedFamily`.
+**`script.run` does not check its steps' keys.** A line such as `frame.create {"rect":[...],"bogus":1}` runs and returns an id, in the running app and headless alike. A missing required key still fails (`missing rect`). Check every name with `describe` before you send the script.
+
+**A font that does not exist is accepted.** `type.char {"attrs":{"fontFamily":"No Such Font"}}` stores that name, draws a substitute and succeeds; the only sign is `{"warnings":["Missing font: No Such Font (using Source Sans 3)"]}` in the result, also inside `script.run` results. `font.list` shows it as `"missing": true` with `resolvedFamily`.
 
 **Only `script.run` is one undo step.** `designcraft-cli script --connect` and MCP `batch` push one undo step per command. On a failing step they stop and leave the earlier steps applied. `script.run` rolls the whole script back when any step fails, including one that fails at run time.
 
@@ -87,15 +89,13 @@ A desktop publishing and page layout app: spreads, parent pages, threaded text f
 
 **Relative paths in the running app resolve against the app's working directory**, which is `/` when it was started with `open`. `file.saveAs {"path":"out/x"}` fails with `the folder out does not exist`. The headless CLI resolves against your shell. Always send absolute paths to the app.
 
-**`app.export` is not a general export.** With a `.jpg` path it still writes PNG data. With no `path` it opens a native Save dialog and returns `null` (read in the source at the tag). Use `ui.render` with an absolute `.png` path, or the `file.export*` commands.
+**`app.export` is not a general export.** The control method (`--method app.export`, which runs `app.exportPng`) writes PNG data even to a `.jpg` path. With no `path` it opens a native Save dialog and returns `null` (read in the source at the tag). Use `ui.render` with an absolute `.png` path, or the `file.export*` commands.
 
-**Every start checks GitHub for a newer release.** The app does it on its own at launch and opens an update prompt when it finds one (read in the source at the tag). A versions file that pins `designcraft`, named by `CRAFT_VERSIONS_FILE` (step 1), stops the check; the log then says `no update offered here`.
+**Every start checks GitHub for a newer release.** The app does it on its own at launch and opens an update prompt when it finds one (read in the source at the tag). A versions file that pins `designcraft`, named by `CRAFT_VERSIONS_FILE` (step 1), stops the check. The default log does not show it; with `--env RUST_LOG=warn,designcraft*=info,craft_update=info` the log says `no update offered here`.
 
 **`designcraft-cli app` without `--port` talks to 7979.** That may be the user's own instance. Always pass `--port`. The CLI's hint `start it with designcraft --control 7979` names a binary that is not on PATH on macOS. Launch with `open -n -a /Applications/DesignCraft.app --args --control <port>`.
 
 **`file.close` closes a dirty document without asking.** `ui.menu.invoke {"command":"file.close"}` (a control method) asks instead: it opens the `closeDocument` dialog, which `ui.dialog.cancel` dismisses. Commands still run while that dialog is open, so check that `ui.inspect` shows `dialog: null` when you finish.
-
-**Page numbers count from 0 in some places and from 1 in others.** `ui.render`, MCP `render_page` and `run --page` are 0-based. `pages` in `file.exportPdf` and `file.exportPptx` is 1-based. `pages:[2]` and `--page 1` are the same page.
 
 **`describe` and `commands` do not know UI commands.** `describe view.lockGuides` says `no command`. Ask the running app (`--method engine.commands`). Headless MCP refuses UI commands with an error naming `--connect`.
 

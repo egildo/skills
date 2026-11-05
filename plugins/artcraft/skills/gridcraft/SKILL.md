@@ -5,7 +5,7 @@ description: GridCraft is the open-source, pure-Rust Excel alternative from stor
 
 # GridCraft
 
-**Pinned:** GridCraft 0.15.0 (app and CLI), docs tag `v0.15.0`, checked 2 November 2026 on macOS. Measured on the running app.
+**Pinned:** GridCraft 0.16.1 (app and CLI), docs tag `v0.16.1`, checked 5 November 2026 on macOS. Measured on the running app.
 
 Two layers, kept apart. GridCraft's docs at the pinned tag and its live command list are the reference for commands, parameters and protocol. This skill holds how to drive it and what was learned by doing. If the two disagree about a command, the docs and the live list win. If the installed version is not the pinned one, say so before relying on anything below.
 
@@ -17,7 +17,7 @@ It is not Excel: VBA in `.xlsm` is kept but never run (its own macros are typed 
 
 ## The references
 
-- Docs at the tag, no login needed: `curl -sL https://raw.githubusercontent.com/storytold/gridcraft/v0.15.0/docs/<file>`
+- Docs at the tag, no login needed: `curl -sL https://raw.githubusercontent.com/storytold/gridcraft/v0.16.1/docs/<file>`
   - `cli.md`: the subcommand table, then `run` (scripts of commands) and `check` (calc and round-trip fidelity).
   - `control-protocol.md`: "Authentication", then the Methods table and "Windows".
   - `mcp.md`: the Tools table.
@@ -28,7 +28,7 @@ It is not Excel: VBA in `.xlsm` is kept but never run (its own macros are typed 
   - headless: `gridcraft-cli commands --search <word>` (add `--json` for the whole list);
   - running app: `gridcraft-cli send 7979 engine.commands` (the app's list also has UI-only ids such as `view.theme` and `ui.printSettings` that the CLI list lacks);
   - MCP: the `list_commands` tool. Worksheet functions: `gridcraft-cli functions --search <word>`.
-- Release notes: `https://github.com/storytold/gridcraft/releases/tag/v0.15.0`
+- Release notes: `https://github.com/storytold/gridcraft/releases/tag/v0.16.1`
 
 ## Surfaces
 
@@ -73,7 +73,7 @@ It is not Excel: VBA in `.xlsm` is kept but never run (its own macros are typed 
 | `.xls` | yes | no | Values, formulas, number formats, cell formatting (fonts, fills, borders, alignment), merges, sizes, names. Colours snap to the 56-colour palette; no charts, pictures, comments or conditional formats. Save as `.xlsx`. |
 | `.xlsb`, `.ods` | yes | no | Worksheet values only: formulas come in as their last saved values, formatting is omitted. |
 | `.csv`, `.tsv` | yes | export | Saving writes displayed text and no formulas; `file.exportCsv {"path":…,"values":true}` writes raw values and ISO dates. Opening picks day or month first per column from dates that read only one way. `file.open {"csvAsText": true}` keeps every field as text. |
-| `.html` | no | export | One sheet as a table. Opening it reads it as delimited text. |
+| `.html` | yes | export | Opening reads the page's first table as one sheet, values read as typed, as in a CSV; a web page saved as `.xls` opens the same way, with a warning. Saving writes one sheet as a table. |
 | `.pdf` | no | export | `gridcraft-cli convert in.xlsx out.pdf`, or `file.saveAs` with a `.pdf` path. |
 | `.json` | yes | yes | GridCraft's internal model, not an interchange format. |
 | encrypted `.xlsx` | with `password` | no | Opens with its password; saves without one. |
@@ -86,7 +86,7 @@ It is not Excel: VBA in `.xlsm` is kept but never run (its own macros are typed 
 
 **Unknown and misspelled parameters are silently ignored.** `home.bold {"rnage":"A2"}` returns success and bolds the current selection instead. After each command, read back the cells you meant to change.
 
-**Toggle commands toggle.** `home.bold {"range":"A1"}` without `"on"` flips the state, so a second call undoes the first. Pass `"on": true` or `"on": false`.
+**Toggle commands toggle from the active cell, not from `range`.** `home.bold {"range":"C1"}` without `"on"` sets the opposite of the active cell's state: with a bold active cell it unbolds C1, twice in a row. Only when `range` is the active cell does a second call undo the first. Pass `"on": true` or `"on": false`.
 
 **An unknown function is not an error.** `cell.set` with `=FOO(1)` exits 0 and stores `#NAME?`. A formula with `;` separators or a bad comma is refused with "There's a problem with this formula". Check the returned value for `#`.
 
@@ -98,11 +98,11 @@ It is not Excel: VBA in `.xlsm` is kept but never run (its own macros are typed 
 
 **Reopening an open file does not reload it.** `file.open` on a path that is already open returns `"alreadyOpen": true` and keeps the copy in memory. Changes made on disk meanwhile are invisible, and the next save overwrites them.
 
-**`file.open` without `path` opens the native Open panel and freezes the control port.** It returns `null`, then every call fails with "not reachable: Resource temporarily unavailable" until someone dismisses the panel in the window. Headless `run` refuses the same call ("programmatic calls never open dialogs"). Always pass `path`.
+**`file.open` without `path` opens the native Open panel and freezes the control port.** The call fails with "not reachable: Resource temporarily unavailable", and every later call fails the same way or hangs until someone dismisses the panel in the window. Headless `run` refuses the same call ("missing `path` or `base64`: programmatic calls never open dialogs"). Always pass `path`.
 
 **Saving as CSV, HTML or PDF is an export.** The document stays `dirty` and keeps its `.xlsx` path. A CSV from `file.saveAs` holds displayed text (`3/4/2026`, `50%`) and no formulas.
 
-**Screenshots are in pixels, pointer input in points.** On a Retina screen the PNG is twice the `window` size `ui.inspect` reports, while `ui.click` takes points. Prefer `ui.cell.click {"cell":"D3"}`.
+**Screenshots need one visible window, and come in pixels.** With a second window visible in your instance, `ui.screenshot` and the MCP `screenshot` tool fail every time with "screenshot failed: the document changed while the capture was queued", whichever window is active or named. Hide the others first (`view.hideWindow {"window": N}`, then `view.unhideWindow`). The PNG is the `window` size `ui.inspect` reports times the screen's scale, twice on Retina, while `ui.click` takes points: prefer `ui.cell.click {"cell":"D3"}`.
 
 **A busy port does not stop the app.** Started on a port another app holds, it opens with no control channel and says so only on stderr; `nc -z` then succeeds against the other app. Check that `lsof` names `GridCraft` before sending anything.
 
@@ -115,7 +115,7 @@ It is not Excel: VBA in `.xlsm` is kept but never run (its own macros are typed 
 - Proof that its `.xlsx` output opens in Excel without a repair prompt: the project says it is unverified.
 - Large workbooks: recalculation is single-threaded, and very large files may not open.
 - Saving `.xls`, `.xlsb`, `.ods`, or a password-protected workbook.
-- Running VBA macros; Office Scripts; add-ins.
+- Running VBA macros or Python cells: both are kept and saved, no code runs. Office Scripts; add-ins.
 - Power Query, the data model, external data refresh.
 - Slicers and timelines in saved files; 3-D charts.
 - Complex text shaping and right-to-left text (Arabic, Devanagari, Thai).

@@ -6,19 +6,19 @@ Each skill is short and pinned. The app's own docs, read at the release tag the 
 
 | App | Stands in for | Pinned | Checked |
 | --- | --- | --- | --- |
-| [PhotoCraft](plugins/artcraft/skills/photocraft/SKILL.md) | Photoshop | 0.14.0 | measured on macOS |
-| [LightCraft](plugins/artcraft/skills/lightcraft/SKILL.md) | Lightroom | 0.13.0 | docs and source |
-| [VectorCraft](plugins/artcraft/skills/vectorcraft/SKILL.md) | Illustrator | 0.16.0 | measured on macOS |
-| [FigCraft](plugins/artcraft/skills/figcraft/SKILL.md) | Figma | 0.10.0 | measured on macOS |
-| [DesignCraft](plugins/artcraft/skills/designcraft/SKILL.md) | InDesign | 0.12.0 | measured on macOS |
-| [WordCraft](plugins/artcraft/skills/wordcraft/SKILL.md) | Word | 0.10.0 | measured on macOS |
-| [DeckCraft](plugins/artcraft/skills/deckcraft/SKILL.md) | PowerPoint | 0.10.0 | docs and source |
-| [GridCraft](plugins/artcraft/skills/gridcraft/SKILL.md) | Excel | 0.11.1 | measured on macOS |
-| [PdfCraft](plugins/artcraft/skills/pdfcraft/SKILL.md) | Acrobat | 0.13.0 | docs and source |
-| [EffectCraft](plugins/artcraft/skills/effectcraft/SKILL.md) | After Effects | 0.16.0 | measured on macOS |
-| [FilmCraft](plugins/artcraft/skills/filmcraft/SKILL.md) | Premiere | 0.12.0 | docs and source |
-| [SoundCraft](plugins/artcraft/skills/soundcraft/SKILL.md) | Pro Tools | 0.12.1 | measured on macOS |
-| [CADCraft](plugins/artcraft/skills/cadcraft/SKILL.md) | AutoCAD | 0.12.0 | measured on macOS |
+| [PhotoCraft](plugins/artcraft/skills/photocraft/SKILL.md) | Photoshop | 0.20.2 | measured on macOS |
+| [LightCraft](plugins/artcraft/skills/lightcraft/SKILL.md) | Lightroom | 0.18.1 | docs and source |
+| [VectorCraft](plugins/artcraft/skills/vectorcraft/SKILL.md) | Illustrator | 0.21.1 | measured on macOS |
+| [FigCraft](plugins/artcraft/skills/figcraft/SKILL.md) | Figma | 0.15.1 | measured on macOS |
+| [DesignCraft](plugins/artcraft/skills/designcraft/SKILL.md) | InDesign | 0.17.2 | measured on macOS |
+| [WordCraft](plugins/artcraft/skills/wordcraft/SKILL.md) | Word | 0.15.2 | measured on macOS |
+| [DeckCraft](plugins/artcraft/skills/deckcraft/SKILL.md) | PowerPoint | 0.15.1 | docs and source |
+| [GridCraft](plugins/artcraft/skills/gridcraft/SKILL.md) | Excel | 0.16.1 | measured on macOS |
+| [PdfCraft](plugins/artcraft/skills/pdfcraft/SKILL.md) | Acrobat | 0.18.2 | docs and source |
+| [EffectCraft](plugins/artcraft/skills/effectcraft/SKILL.md) | After Effects | 0.21.1 | measured on macOS |
+| [FilmCraft](plugins/artcraft/skills/filmcraft/SKILL.md) | Premiere | 0.17.1 | docs and source |
+| [SoundCraft](plugins/artcraft/skills/soundcraft/SKILL.md) | Pro Tools | 0.17.1 | measured on macOS |
+| [CADCraft](plugins/artcraft/skills/cadcraft/SKILL.md) | AutoCAD | 0.17.1 | measured on macOS |
 
 "Measured" means the loop and every pitfall were run on that version of the app. "Docs and source" means the app was not installed: the skill says so in its first line, and marks each pitfall as not measured. If your installed version differs from the pinned one, the skill tells Claude to say so before relying on it.
 

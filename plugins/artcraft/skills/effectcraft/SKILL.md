@@ -1,11 +1,11 @@
 ---
 name: effectcraft
-description: EffectCraft is the open-source, pure-Rust After Effects alternative from storytold, a compositor with comps, layers, keyframes, effects, expressions and a render queue. It applies when the user mentions EffectCraft, `effectcraft-cli`, `.ecproj` or `.ecprojx` files, or its MCP server or control port, or asks to script, automate, render or convert with it. Generic motion jobs ("animate this title", "render a ProRes") trigger it only when the user is working in EffectCraft. It is not After Effects and does not open `.aep` files. FilmCraft is its sibling video editor, not this app.
+description: EffectCraft is the open-source, pure-Rust After Effects alternative from storytold, a compositor with comps, layers, keyframes, effects, expressions and a render queue. It applies when the user mentions EffectCraft, `effectcraft-cli`, `.ecproj` or `.ecprojx` files, or its MCP server or control port, or asks to script, automate, render or convert with it. Generic motion jobs ("animate this title", "render a ProRes") trigger it only when the user is working in EffectCraft. It is not After Effects: it imports `.aep` files only in part. FilmCraft is its sibling video editor, not this app.
 ---
 
 # EffectCraft
 
-**Pinned:** EffectCraft 0.20.0 (app and CLI), docs tag `v0.20.0`, checked 2 November 2026 on macOS. Measured on the running app.
+**Pinned:** EffectCraft 0.21.1 (app and CLI), docs tag `v0.21.1`, checked 5 November 2026 on macOS. Measured on the running app.
 
 Two layers, kept apart. EffectCraft's docs at the pinned tag and its live command list are the reference for commands, parameters and protocol. This skill holds how to drive it and what was learned by doing. If the two disagree about a command, the docs and the live list win. If the installed version is not the pinned one, say so before relying on anything below.
 
@@ -15,21 +15,22 @@ Two layers, kept apart. EffectCraft's docs at the pinned tag and its live comman
 - Native format: `.ecproj` (versioned JSON). `.ecprojx` is an XML copy of the same project.
 - Maturity, in the project's own words: "alpha", "young and moving fast".
 - Every action is an engine command with an id and JSON params. Menus, the CLI, MCP and the control port all run the same commands.
-- It is not After Effects. It has no `.aep` reader, does not run After Effects plug-ins and does not read `.ffx` presets or `.mogrt` templates.
+- It is not After Effects. It imports `.aep` and `.aepx` projects in part and writes neither. It does not run After Effects plug-ins and does not read `.ffx` presets or `.mogrt` templates.
 
 ## The references
 
-- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/effectcraft/v0.20.0/docs/<file>`.
+- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/effectcraft/v0.21.1/docs/<file>`.
   - `agents.md`: read *A typical session*, *Pitfalls* and *CLI* first, then the cookbooks for the task in hand.
   - `control-protocol.md`: the *Engine* table, then *UI state* and *Screenshots*.
   - `mcp.md`: *Confining file access*, *Two outputs on one file*, *Progress and cancellation*.
-  - `file-format-parity.md` (what opens and what is written; *Render source protection*), `gaps.md` (what is missing), `preferences.md` (*Auto-save and crash recovery*).
+  - `aep-import.md`: *The command*, then *What is imported* before promising anything from an After Effects project.
+  - `file-format-parity.md` (what opens and what is written; *Render source protection*), `gaps.md` (what is missing; it still says `.aep` cannot be opened, which the live command list contradicts), `preferences.md` (*Auto-save and crash recovery*).
 - Live command list: `effectcraft-cli commands --filter <word>`. For one command in full: `effectcraft-cli exec command.describe --params '{"command":"<id>"}' --empty --json`. Against the running app: `engine.commands {filter}` on the control port. Never guess a parameter name.
-- Release notes: `https://github.com/storytold/effectcraft/releases/tag/v0.20.0`.
+- Release notes: `https://github.com/storytold/effectcraft/releases/tag/v0.21.1`.
 
 ## Surfaces
 
-- **Headless CLI** (`effectcraft-cli exec|run|get|set|props|render-frame|render`). One shot, files in, files out, no window. Each call is a fresh session: pass `--empty` or a project, and add `--save` or `--save-as F` or nothing is kept. Use it for batch jobs and renders that need no window. For long step lists, `run --commands steps.json` (or `--commands -` for standard input) takes `{"command","params"}` steps.
+- **Headless CLI** (`effectcraft-cli exec|run|get|set|props|render-frame|render`). One shot, files in, files out, no window. Each call is a fresh session: pass `--empty` or a project, and add `--save` or `--save-as F` or nothing is kept. Use it for batch jobs and renders that need no window. For long step lists, `run --commands steps.json` (or `--commands -` for standard input) takes `{"command","params"}` steps. Runs that `--save` the same project take turns: the second prints `waiting for another run saving <file>` and edits what the first saved. An empty `.<name>.lock` stays next to the project.
 - **MCP headless** (`effectcraft-cli mcp`). A long session with no window. It starts with an empty project and renders on the CPU unless you add `--gpu`. Add `--autosave` for checkpoints, and `--automation-read-root` / `--automation-write-root` to confine file access.
 - **MCP bridged** (`effectcraft-cli mcp --bridge 9877`). Drives a running app, so changes show in its window. It adds `screenshot` and the `ui_*` tools.
 - **Control port** (`EffectCraft --control 9877`, or `EFFECTCRAFT_CONTROL_PORT`). One JSON object per line on 127.0.0.1, sent with `printf '<json>\n' | nc 127.0.0.1 9877`. It has no authentication and no token. `effectcraft-cli exec|run|render-frame ... --bridge 9877` sends engine commands through it.
@@ -42,7 +43,7 @@ Two layers, kept apart. EffectCraft's docs at the pinned tag and its live comman
 2. **Check the link and who answers.** Run `lsof -nP -iTCP:9877 -sTCP:LISTEN`: the PID must be the instance you just started, and `ps -o args= -p <pid>` must name `EffectCraft`. Another app may hold the same port. Then send `{"id":1,"method":"engine.execute","params":{"command":"project.summary"}}`. The reply gives `path`, `dirty`, `activeComp`, `items` and the `undo` list.
 3. **Name the target in every call.** There is one project per process. Commands fall back to the active comp and the selected layers, so pass `comp` and `layer`/`layers` every time.
 4. **Make one undo step per logical change** with `engine.batch`: `effectcraft-cli exec engine.batch '{"label":"Title card","steps":[{"command":"comp.new","params":{...}},{"command":"layer.newText","params":{...}}]}' --bridge 9877 --json`. Use `"$1.layer"` to pass step 1's result to a later step. If a step fails, the whole batch is rolled back. Keep the ids the reply returns.
-5. **Look at the result.** `render.frame {"comp":..,"time":..,"max_side":640,"path":"<scratch>/f.png"}` renders the comp. `ui.screenshot {"path":..,"panel":"Timeline"}` captures the window. Read the PNGs. Read values back with `prop.get {layer, path, time?}`.
+5. **Look at the result.** `render.frame` and `ui.screenshot` are control methods, not engine commands: send `{"method":"render.frame","params":{...}}`, since `engine.execute` answers "unknown command". `render.frame {"comp":..,"time":..,"max_side":640,"path":"<scratch>/f.png"}` renders the comp. `ui.screenshot {"path":..,"panel":"Timeline"}` captures the window. Read the PNGs. Read values back with `prop.get {layer, path, time?}`.
 6. **Render.** Run `renderQueue.add {"comp":..,"format":"h264","output":"<abs path>","timeSpan":"comp"}` (without `output`, an unsaved project renders into the user's Movies folder), then `renderQueue.render {"wait":true}`. Check the file with `ffprobe` and read each item's status.
 7. **Save** with `file.saveAs {"path":"<abs path>"}`. A first `file.save` without a path fails; no dialog ever opens.
 8. **Quit only your instance.** Check the PID behind the port again, then send the control method `{"method":"app.quit","params":{"force":true}}`. The engine command `app.quit` (through `engine.execute`) refuses `force`. Without `force`, a dirty project raises the Save / Don't Save prompt (`dialog.unsaved.dontSave` to dismiss it).
@@ -62,7 +63,8 @@ Two layers, kept apart. EffectCraft's docs at the pinned tag and its live comman
 |---|---|---|---|
 | `.ecproj` | yes | yes | Native. Footage paths are stored, not media. |
 | `.ecprojx` | yes | `file.saveCopyAsXml` | Same data as XML. |
-| `.aep`, `.aepx`, `.mogrt`, `.ffx` | no | no | Rebuild the work, or script it in through `.jsx`. |
+| `.aep`, `.aepx` | `file.importAep` | no | Partial. Without `allowLosses` an import that would lose anything is refused; run `dryRun` first and read the `report`. Effects outside the importer's table, plug-ins included, are reported, not converted *(docs, not measured)*. |
+| `.mogrt`, `.ffx` | no | no | Rebuild the work, or script it in through `.jsx`. |
 | `.jsx` scripts | run | no | After Effects object model. No `.jsxbin`. |
 | Lottie `.json`, `.lottie` | `file.importLottie` | `file.exportLottie` | Read the `warnings`: most effects, 3D and video are dropped. A plain `file.import` of `.json` brings it in as data, not Lottie. |
 | FCP7 XML, FCPXML, OTIO, EDL, AAF, OMF | `file.importTimeline` | `file.exportTimeline` | Layers a timeline cannot hold are pre-rendered to ProRes 4444. No `.prproj`. |
@@ -87,11 +89,11 @@ Two layers, kept apart. EffectCraft's docs at the pinned tag and its live comman
 - **The headless CLI starts from the demo project.** Without `--empty`, `exec comp.new ... --save-as new.ecproj` saved the demo's comps and solids too.
 - **`effect.apply` takes no values.** It accepts only `effect` and `layers`/`layer`, and rejects `values`. Set parameters with `prop.set` on the `paths` it returns, or use MCP `add_effect`, which takes `values`.
 - **Every launch asks GitHub for a newer release** *(source at the tag)*. A release newer than the app opens an install prompt over the window. To skip the check, add `--env CRAFT_VERSIONS_FILE=<scratch>/versions.json` holding `{"apps":{"effectcraft":{"Pinned":"<installed version>"}}}`. Never accept an install.
-- **A menu invocation can leave a modal dialog open.** `ui.menu.invoke {"id":"comp.new"}` opens Composition Settings. Engine commands keep running behind the dialog, and `ui.inspect` shows it as `dialog`. While it is open, `ui.screenshot` fails with "window is covered or minimized: call ui.focus first"; do not call `ui.focus`, which takes the user's keyboard focus. Close the dialog with `ui.key {"key":"Escape"}`. Use `engine.execute` for edits.
+- **A menu invocation can leave a modal dialog open.** `ui.menu.invoke {"id":"comp.new"}` opens Composition Settings. Engine commands keep running behind the dialog, and `ui.inspect` shows it as `dialog`. Do not call `ui.focus`: it takes the user's keyboard focus. Close the dialog with `ui.key {"key":"Escape"}`. Use `engine.execute` for edits.
 
 ## Not there yet
 
-- No `.aep`, `.aepx`, `.mogrt` or `.ffx`. No After Effects plug-ins; only WebAssembly effect plug-ins.
+- No `.aep` or `.aepx` export, and the import is partial. No `.mogrt` or `.ffx`. No After Effects plug-ins; only WebAssembly effect plug-ins.
 - No `.prproj`, USD/USDZ, Substance materials, camera raw, HEIF/AVIF, BRAW or R3D.
 - No hardware video encode or decode. No safe render over an existing file.
 - Fidelity against After Effects is mostly unmeasured, so never promise an identical render.

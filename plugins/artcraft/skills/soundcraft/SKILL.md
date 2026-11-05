@@ -5,7 +5,7 @@ description: SoundCraft is the open-source, pure-Rust Pro Tools alternative from
 
 # SoundCraft
 
-**Pinned:** SoundCraft 0.16.0 (app and CLI), docs tag `v0.16.0`, checked 2 November 2026 on macOS. Measured on the running app.
+**Pinned:** SoundCraft 0.17.1 (app and CLI), docs tag `v0.17.1`, checked 5 November 2026 on macOS. Measured on the running app.
 
 Two layers, kept apart. SoundCraft's docs at the pinned tag and its live command list are the reference for commands, parameters and protocol. This skill holds how to drive it and what was learned by doing. If the two disagree about a command, the docs and the live list win. If the installed version is not the pinned one, say so before relying on anything below.
 
@@ -19,21 +19,21 @@ It is not Pro Tools: no `.ptx` sessions, no AAF or OMF, no AAX plug-ins.
 
 ## The references
 
-- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/soundcraft/v0.16.0/docs/<file>`
+- Docs at the tag: `curl -sL https://raw.githubusercontent.com/storytold/soundcraft/v0.17.1/docs/<file>`
   - `cli.md`: the subcommand table, then "Output and exit codes".
   - `control-protocol.md`: the "Methods" table, then "Positions and references".
   - `mcp.md`: the "Tools" table, then "Confining file access".
   - `file-format-parity.md`: the "Audio" and "Sessions and interchange" tables.
   - `gaps.md`: "Ranked gaps".
-- README at the tag ("For agents and scripts", "Logs"): `curl -sL https://raw.githubusercontent.com/storytold/soundcraft/v0.16.0/README.md`
+- README at the tag ("For agents and scripts", "Logs"): `curl -sL https://raw.githubusercontent.com/storytold/soundcraft/v0.17.1/README.md`
 - The live command list: `soundcraft-cli commands [FILTER]`, then `soundcraft-cli describe ID` for one command's parameters. That list is the engine only. The running app adds its UI commands (`ui.dock`, `ui.audio_device`, `ui.theme`): ask it with `soundcraft-cli app --port 7801 engine.commands '{"filter":"ui."}'`. Over MCP: `list_commands`.
-- Release notes: `https://github.com/storytold/soundcraft/releases/tag/v0.16.0`
+- Release notes: `https://github.com/storytold/soundcraft/releases/tag/v0.17.1`
 
 ## Surfaces
 
-- **Headless CLI** (`soundcraft-cli`): one shot, no window. `run --in S.scraft` (or `--demo`) applies `--cmd 'ID=JSON'` steps, then `--bounce OUT` and `--save S.scraft`. `--save` onto the `--in` file is refused (exit 2) unless you add `--in-place`. A misspelt flag is exit 2 too. `info` probes a file; `convert` changes format or rate. Pick it for a bounce or a batch edit of a session nobody has open.
+- **Headless CLI** (`soundcraft-cli`): one shot, no window. `run --in S.scraft` (or `--demo`) applies `--cmd 'ID=JSON'` steps, then `--bounce OUT` and `--save S.scraft`. `--save` onto the `--in` file is refused (exit 2) unless you add `--in-place`, which keeps no copy in `Backups/`. A misspelt flag is exit 2 too. `info` probes a file; `convert` changes format or rate. Pick it for a bounce or a batch edit of a session nobody has open.
 - **MCP, headless** (`soundcraft-cli mcp`, `--demo` to start from the demo song): a long session on stdio with its own engine. Add `--automation-read-root DIR --automation-write-root DIR` to keep it to given folders; each flag may repeat, and a write outside them fails `automation path rejected`.
-- **MCP, attached** (`soundcraft-cli mcp --connect 7801`): the same tools plus `screenshot`, `ui_inspect`, `click`, `drag`, `key` and `menu_invoke`, against an app started with `--control 7801`. Changes show in that window. The roots cannot be combined with `--connect`, and the app is not confined.
+- **MCP, attached** (`soundcraft-cli mcp --connect 7801`): the same tools plus `screenshot`, `ui_inspect`, `ui_set`, `click`, `drag`, `key` and `menu_invoke`, against an app started with `--control 7801`. Changes show in that window. The roots cannot be combined with `--connect`, and the app is not confined.
 - **Control port** (`--control PORT`; `0` picks one and prints `SOUNDCRAFT_CONTROL_PORT=…` on stdout): JSON lines on `127.0.0.1`. From a shell: `soundcraft-cli app --port PORT METHOD_OR_COMMAND_ID 'JSON'`. There is no batch method on the port; use MCP `batch` for that.
 - No authentication on the port or MCP, and no token. Never forward the port.
 - The CLI is a separate download (`soundcraft-cli-<ver>-macos-universal.zip`); the app bundle holds only `SoundCraft`. No method reports the app's version over the port, so compare `soundcraft-cli --version` with `/Applications/SoundCraft.app/Contents/MacOS/SoundCraft --version` before you start. What a mismatch breaks was not measured; do not mix versions.
@@ -41,14 +41,14 @@ It is not Pro Tools: no `.ptx` sessions, no AAF or OMF, no AAX plug-ins.
 ## Driving it
 
 1. Start your own instance with an isolated profile and no audio output:
-   `echo '{"apps":{"soundcraft":{"Pinned":"v0.16.0"}}}' > "$SCRATCH/versions.json"`
+   `echo '{"apps":{"soundcraft":{"Pinned":"v0.17.1"}}}' > "$SCRATCH/versions.json"`
    `open -n -a /Applications/SoundCraft.app --env SOUNDCRAFT_CONFIG_DIR="$SCRATCH/sc-config" --env CRAFT_VERSIONS_FILE="$SCRATCH/versions.json" --args --no-audio --control 7801`
    The versions file keeps the instance from asking GitHub for updates (see Pitfalls).
    Wait with `until nc -z 127.0.0.1 7801; do sleep 0.5; done`, then run `lsof -nP -iTCP:7801 -sTCP:LISTEN` and check the listener is `SoundCraft`. Keep its PID.
 2. Check the link: `soundcraft-cli app --port 7801 ui.inspect`. Always pass `--port`.
 3. Know the document: `soundcraft-cli app --port 7801 session.inspect` gives `name`, `path`, `dirty`, `selection` and `undo`. In your own instance, start clean with `session.new '{"name":"work","template":"blank"}'` (or `"demo"`).
 4. Spell each parameter from `soundcraft-cli describe ID`, and name the target explicitly (`"track":"Bass"`, clip ids from `session.inspect`). Positions: integer samples or `{"seconds": 2.5}`.
-5. Make the change. One command per call on the port, or many through MCP `batch` (`soundcraft-cli mcp --connect 7801`). Each command is its own undo step: `engine.history` lists them, `edit.undo` reverts one.
+5. Make the change. One command per call on the port, or many through MCP `batch` (`soundcraft-cli mcp --connect 7801`). Each command is its own undo step: `engine.history` lists them, `edit.undo` reverts one. `track.new` with `rows` makes up to 128 tracks of mixed kinds in one step.
 6. Look: read `session.inspect` back, and take `ui.screenshot '{"path":"/abs/shot.png"}'` and read the PNG.
 7. Write with absolute paths: `file.bounce_mix '{"path":"/abs/mix.wav","start":0,"end":{"seconds":30}}'`, then check `seconds` and `peak_db` in the reply and run `soundcraft-cli info /abs/mix.wav`. `session.save '{"path":"/abs/dir/name.scraft"}'` writes `Audio Files/` beside it.
 8. Quit only your PID: confirm `lsof -nP -iTCP:7801 -sTCP:LISTEN -t` is it, then `soundcraft-cli app --port 7801 app.quit`.
@@ -69,7 +69,7 @@ It is not Pro Tools: no `.ptx` sessions, no AAF or OMF, no AAX plug-ins.
 | Format | Open | Write | Caveat |
 |---|---|---|---|
 | `.scraft` + `Audio Files/` | yes | yes | Imported audio is copied into `Audio Files/` on save. Saving over the session's own file keeps a copy in `Backups/`. |
-| WAV/BWF/RF64, AIFF, FLAC | yes | yes | Bounce bit depth 16, 24 or `32f`. |
+| WAV/BWF/RF64, AIFF, FLAC | yes | yes | Bounce bit depth 16, 24 or `32f`. A WAV bounce's `bext` time reference is the session's timecode start plus the bounce start. |
 | MP3, AAC/M4A, ALAC, Ogg Vorbis, CAF, movie audio | yes | no | `file.bounce_mix` to `.mp3` is refused. Convert to WAV elsewhere. |
 | Standard MIDI File | yes | yes | Export may drop imported controllers *(docs, not measured)*. |
 | MusicXML, SVG score | no | yes | Export only *(docs, not measured)*. |
@@ -84,12 +84,12 @@ It is not Pro Tools: no `.ptx` sessions, no AAF or OMF, no AAX plug-ins.
 - **`session.new`, `session.open` and `app.quit` throw away unsaved changes.** No prompt, no dialog, and the Autosave folder stayed empty. Check `dirty` in `session.inspect` and save first.
 - **Relative paths resolve against the app's working directory.** Launched with `open`, that is `/`, and a bounce fails with `Read-only file system`. Launched from a shell, files land in that shell's directory. Pass absolute paths.
 - **`file.bounce_mix` overwrites without asking, and `format` beats the extension.** An existing file is replaced silently (unlike `session.save`). `"path":"mix.wav","format":"flac"` writes FLAC data into `mix.wav`, and a path with no extension gets none.
-- **An empty bounce succeeds.** A session or range with nothing in it returns ok with a 110-byte file and `peak_db` of `-144`. Check `seconds` and `peak_db` before you report success.
+- **An empty bounce succeeds.** An empty session bounces to a one-sample file, an empty range to that much silence, and both return ok with `peak_db` of `-144`. Check `seconds` and `peak_db` before you report success.
 - **`file.export_clips` ignores `format`.** `"aiff"` and `"mp3"` both wrote `.wav` files with no error. Convert afterwards with `soundcraft-cli convert`.
 - **`soundcraft-cli app` without `--port` goes to `7979`** (or `$SOUNDCRAFT_CONTROL_PORT`), which may be someone else's instance. Always pass `--port`.
 - **A taken port does not stop the app.** A second instance with `--control` on a busy port opens its window with no control server; only the log shows `failed to bind`. Your commands then reach the first instance. And `nc -z` succeeds for any listener, so confirm with `lsof` that it is SoundCraft.
-- **`open -a` without `-n` starts nothing new.** With SoundCraft already running, it activates that instance and drops `--args` and `--env`, with no error. Always use `open -n`.
-- **Screenshots are in pixels, clicks are in points.** On a Retina screen the PNG is twice `window_size` from `ui.inspect`. Divide screenshot coordinates by the ratio before `ui.click`.
+- **`open -a` without `-n` starts nothing new.** With SoundCraft already running, it activates that instance and drops `--args` and `--env`. `open` exits 0; with `--env` it only warns `the additional environment variables could not be set`. Always use `open -n`.
+- **Screenshots are in pixels, clicks are in points.** On a Retina screen the PNG is twice `window_size` from `ui.inspect`; on a 1x screen they match. Divide screenshot coordinates by the ratio before `ui.click`.
 - **Every start asks GitHub for a newer release.** The desktop app checks `api.github.com` at launch and may open an update prompt in your window. Set `CRAFT_VERSIONS_FILE` to a file that pins `soundcraft` (step 1): the check is skipped, and with `RUST_LOG=info,craft_update=info` the log says `follows the launcher's choice`. There is no flag for it.
 - **`end` without `start` bounces from the selection start, not from zero.** With the playhead at 5 s, `{"end":{"seconds":30}}` wrote 25 s. With neither, the whole session. Always pass `"start":0` with `end`.
 
